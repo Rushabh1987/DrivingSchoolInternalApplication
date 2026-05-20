@@ -60,3 +60,11 @@
 2. In the Training Days section, click `Delete` on the training day row or card.
 3. A `Confirm` button appears — click it to proceed.
 4. The training day is removed from the list.
+
+## Add Payment
+
+1. Open the student profile.
+2. In the Payment History section, click `Add Payment`.
+3. Fill in the date (required), amount (required), method, receipt number, and notes.
+4. Click `Save`.
+5. The payment appears in the history and the fee summary bar (paid and pending amounts) updates immediately.

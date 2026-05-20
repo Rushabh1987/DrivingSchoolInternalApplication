@@ -117,3 +117,22 @@ Returns the updated training day. Returns `404` if not found.
 ## `DELETE /training-days/{id}`
 
 Deletes a training day. Returns `204` on success. Returns `404` if not found.
+
+## `POST /students/{id}/payments`
+
+Records a payment for a student.
+
+Required request fields:
+
+- `payment_date` — `YYYY-MM-DD`
+- `amount` — positive integer
+
+Optional request fields:
+
+- `method` — `cash`, `upi`, `bank_transfer`, `card`, `cheque`, or `other` (default: `cash`)
+- `receipt_number`
+- `notes`
+
+Returns the created payment with `201`. Returns `404` if the student is not found.
+
+Payments are append-only — existing payment rows are never edited or deleted.

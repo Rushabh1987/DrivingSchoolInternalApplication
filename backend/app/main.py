@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .dashboard import get_dashboard_data
 from .database import database_path, initialize_database, verify_database
+from .payments import PaymentCreate, create_payment
 from .students import StudentCreate, StudentUpdate, archive_student, create_student, get_student, list_students, update_student
 from .training_days import TrainingDayCreate, create_training_day, delete_training_day, update_training_day
 
@@ -78,6 +79,11 @@ def update_student_route(student_id: int, payload: StudentUpdate) -> dict:
 @app.patch("/students/{student_id}/archive")
 def archive_student_route(student_id: int) -> dict:
     return archive_student(student_id)
+
+
+@app.post("/students/{student_id}/payments", status_code=201)
+def add_payment(student_id: int, payload: PaymentCreate) -> dict:
+    return create_payment(student_id, payload)
 
 
 @app.post("/students/{student_id}/training-days", status_code=201)

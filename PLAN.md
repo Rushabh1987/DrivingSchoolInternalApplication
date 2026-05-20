@@ -176,12 +176,12 @@ Success criteria:
 
 Goal: track student fees without making accounting complicated.
 
-- [ ] Store total fees for each student
-- [ ] Record payments with date, amount, method, and note
-- [ ] Calculate paid amount and pending amount
-- [ ] Show payment history on student profile
-- [ ] Show pending payments on dashboard
-- [ ] Allow simple receipt note or receipt number
+- [x] Store total fees for each student
+- [x] Record payments with date, amount, method, and note
+- [x] Calculate paid amount and pending amount
+- [x] Show payment history on student profile
+- [x] Show pending payments on dashboard
+- [x] Allow simple receipt note or receipt number
 
 Success criteria:
 

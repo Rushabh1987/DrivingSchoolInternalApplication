@@ -137,6 +137,22 @@ const emptyTrainingDayForm: TrainingDayFormState = {
   instructor_name: "",
 };
 
+type PaymentFormState = {
+  payment_date: string;
+  amount: string;
+  method: "cash" | "upi" | "bank_transfer" | "card" | "cheque" | "other";
+  receipt_number: string;
+  notes: string;
+};
+
+const emptyPaymentForm: PaymentFormState = {
+  payment_date: "",
+  amount: "",
+  method: "cash",
+  receipt_number: "",
+  notes: "",
+};
+
 type DashboardState =
   | { status: "loading" }
   | { status: "ready"; data: DashboardData }
@@ -1266,58 +1282,14 @@ function StudentProfileView({
         trainingDays={student.training_days}
       />
 
-      <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
-        <h3 className="font-semibold">
-          Payment History <span className="text-sm font-normal text-[#6b7280]">({student.payments.length})</span>
-        </h3>
-        <div className="mt-3">
-          {student.payments.length === 0 ? (
-            <p className="rounded-md border border-dashed border-[#d1d5db] p-4 text-center text-sm text-[#6b7280]">No payments recorded.</p>
-          ) : (
-            <>
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-[#d1d5db] text-[#6b7280]">
-                      <th className="py-2 pr-4 font-semibold">Date</th>
-                      <th className="py-2 pr-4 font-semibold">Amount</th>
-                      <th className="py-2 pr-4 font-semibold">Method</th>
-                      <th className="py-2 pr-4 font-semibold">Receipt</th>
-                      <th className="py-2 font-semibold">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {student.payments.map((payment) => (
-                      <tr className="border-b border-[#d1d5db]" key={payment.id}>
-                        <td className="py-2 pr-4">{formatDate(payment.payment_date)}</td>
-                        <td className="py-2 pr-4 font-medium text-[#2f9e44]">{formatCurrency(payment.amount)}</td>
-                        <td className="py-2 pr-4 text-[#6b7280]">{titleCase(payment.method)}</td>
-                        <td className="py-2 pr-4 text-[#6b7280]">{payment.receipt_number || "-"}</td>
-                        <td className="py-2 text-[#6b7280]">{payment.notes || "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="space-y-2 md:hidden">
-                {student.payments.map((payment) => (
-                  <div className="rounded-md border border-[#d1d5db] p-3" key={payment.id}>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium text-[#2f9e44]">{formatCurrency(payment.amount)}</p>
-                      <p className="text-sm text-[#6b7280]">{formatDate(payment.payment_date)}</p>
-                    </div>
-                    <p className="mt-1 text-sm text-[#6b7280]">
-                      {titleCase(payment.method)}
-                      {payment.receipt_number ? ` - Receipt: ${payment.receipt_number}` : ""}
-                    </p>
-                    {payment.notes ? <p className="mt-1 text-sm text-[#6b7280]">{payment.notes}</p> : null}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </section>
+      <PaymentsSection
+        onMutated={() => {
+          setRefreshKey((k) => k + 1);
+          onStudentUpdated();
+        }}
+        payments={student.payments}
+        studentId={student.id}
+      />
 
       <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
         <h3 className="font-semibold">Activity Log</h3>
@@ -1672,6 +1644,200 @@ function TrainingDaysSection({
             </div>
           </>
         ) : null}
+      </div>
+    </section>
+  );
+}
+
+function PaymentForm({
+  form,
+  onCancel,
+  onChange,
+  onSubmit,
+  saving,
+  error,
+}: {
+  form: PaymentFormState;
+  onCancel: () => void;
+  onChange: <K extends keyof PaymentFormState>(field: K, value: PaymentFormState[K]) => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  saving: boolean;
+  error: string | null;
+}) {
+  return (
+    <form className="rounded-md border border-[#d1d5db] bg-[#f3f4f6] p-4" onSubmit={onSubmit}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <InputField label="Date" name="payment_date" onChange={(v) => onChange("payment_date", v)} required type="date" value={form.payment_date} />
+        <InputField label="Amount" min="1" name="amount" onChange={(v) => onChange("amount", v)} placeholder="Amount" required type="number" value={form.amount} />
+        <SelectField label="Method" name="method" onChange={(v) => onChange("method", v as PaymentFormState["method"])} value={form.method}>
+          <option value="cash">Cash</option>
+          <option value="upi">UPI</option>
+          <option value="bank_transfer">Bank Transfer</option>
+          <option value="card">Card</option>
+          <option value="cheque">Cheque</option>
+          <option value="other">Other</option>
+        </SelectField>
+        <InputField label="Receipt number" name="receipt_number" onChange={(v) => onChange("receipt_number", v)} value={form.receipt_number} />
+        <div className="sm:col-span-2">
+          <InputField label="Notes" name="notes" onChange={(v) => onChange("notes", v)} value={form.notes} />
+        </div>
+      </div>
+      {error ? <p className="mt-2 text-sm text-[#d64545]">{error}</p> : null}
+      <div className="mt-3 flex gap-2">
+        <button
+          className="min-h-9 rounded-md bg-[#2563eb] px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-70"
+          disabled={saving}
+          type="submit"
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+        <button
+          className="min-h-9 rounded-md border border-[#d1d5db] px-4 py-1.5 text-sm font-semibold text-[#6b7280] transition hover:bg-white"
+          onClick={onCancel}
+          type="button"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function PaymentsSection({
+  onMutated,
+  payments,
+  studentId,
+}: {
+  onMutated: () => void;
+  payments: PaymentRecord[];
+  studentId: number;
+}) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [form, setForm] = useState<PaymentFormState>(emptyPaymentForm);
+  const [saveState, setSaveState] = useState<{ status: "idle" } | { status: "saving" } | { status: "error"; message: string }>({ status: "idle" });
+
+  function updateField<K extends keyof PaymentFormState>(field: K, value: PaymentFormState[K]) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  function startAdd() {
+    setForm({ ...emptyPaymentForm, payment_date: new Date().toISOString().slice(0, 10) });
+    setSaveState({ status: "idle" });
+    setIsAdding(true);
+  }
+
+  function cancel() {
+    setIsAdding(false);
+    setSaveState({ status: "idle" });
+  }
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const amountNum = parseInt(form.amount, 10);
+    if (!form.payment_date) {
+      setSaveState({ status: "error", message: "Payment date is required." });
+      return;
+    }
+    if (!form.amount || isNaN(amountNum) || amountNum <= 0) {
+      setSaveState({ status: "error", message: "Amount must be a positive number." });
+      return;
+    }
+    setSaveState({ status: "saving" });
+    try {
+      const res = await fetch(`http://localhost:8000/students/${studentId}/payments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, amount: amountNum }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSaveState({ status: "error", message: data.detail || "Payment could not be saved." });
+        return;
+      }
+      setIsAdding(false);
+      setSaveState({ status: "idle" });
+      onMutated();
+    } catch {
+      setSaveState({ status: "error", message: "Could not connect to server." });
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-semibold">
+          Payment History <span className="text-sm font-normal text-[#6b7280]">({payments.length})</span>
+        </h3>
+        {!isAdding ? (
+          <button
+            className="rounded-md border border-[#d1d5db] px-3 py-1.5 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
+            onClick={startAdd}
+            type="button"
+          >
+            Add Payment
+          </button>
+        ) : null}
+      </div>
+
+      {isAdding ? (
+        <div className="mt-3">
+          <PaymentForm
+            error={saveState.status === "error" ? saveState.message : null}
+            form={form}
+            onCancel={cancel}
+            onChange={updateField}
+            onSubmit={handleSubmit}
+            saving={saveState.status === "saving"}
+          />
+        </div>
+      ) : null}
+
+      <div className="mt-3">
+        {payments.length === 0 ? (
+          <p className="rounded-md border border-dashed border-[#d1d5db] p-4 text-center text-sm text-[#6b7280]">No payments recorded.</p>
+        ) : (
+          <>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[#d1d5db] text-[#6b7280]">
+                    <th className="py-2 pr-4 font-semibold">Date</th>
+                    <th className="py-2 pr-4 font-semibold">Amount</th>
+                    <th className="py-2 pr-4 font-semibold">Method</th>
+                    <th className="py-2 pr-4 font-semibold">Receipt</th>
+                    <th className="py-2 font-semibold">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((payment) => (
+                    <tr className="border-b border-[#d1d5db]" key={payment.id}>
+                      <td className="py-2 pr-4">{formatDate(payment.payment_date)}</td>
+                      <td className="py-2 pr-4 font-medium text-[#2f9e44]">{formatCurrency(payment.amount)}</td>
+                      <td className="py-2 pr-4 text-[#6b7280]">{titleCase(payment.method)}</td>
+                      <td className="py-2 pr-4 text-[#6b7280]">{payment.receipt_number || "-"}</td>
+                      <td className="py-2 text-[#6b7280]">{payment.notes || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="space-y-2 md:hidden">
+              {payments.map((payment) => (
+                <div className="rounded-md border border-[#d1d5db] p-3" key={payment.id}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-[#2f9e44]">{formatCurrency(payment.amount)}</p>
+                    <p className="text-sm text-[#6b7280]">{formatDate(payment.payment_date)}</p>
+                  </div>
+                  <p className="mt-1 text-sm text-[#6b7280]">
+                    {titleCase(payment.method)}
+                    {payment.receipt_number ? ` - Receipt: ${payment.receipt_number}` : ""}
+                  </p>
+                  {payment.notes ? <p className="mt-1 text-sm text-[#6b7280]">{payment.notes}</p> : null}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </section>
   );
