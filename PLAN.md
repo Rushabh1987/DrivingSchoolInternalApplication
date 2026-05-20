@@ -211,13 +211,13 @@ Success criteria:
 
 Goal: make the app comfortable on both mobile and laptop.
 
-- [ ] Use responsive navigation
-- [ ] Use compact mobile cards for student lists
-- [ ] Use wider tables only when there is enough screen space
-- [ ] Keep forms easy to fill on a phone
-- [ ] Make buttons large enough for touch
-- [ ] Ensure text does not overlap or overflow
-- [ ] Test key screens on mobile and laptop widths
+- [x] Use responsive navigation
+- [x] Use compact mobile cards for student lists
+- [x] Use wider tables only when there is enough screen space
+- [x] Keep forms easy to fill on a phone
+- [x] Make buttons large enough for touch
+- [x] Ensure text does not overlap or overflow
+- [x] Test key screens on mobile and laptop widths
 
 Success criteria:
 
@@ -231,10 +231,10 @@ Success criteria:
 Goal: keep the small app reliable.
 
 - [ ] Add frontend tests for login, student form, student list, and training day UI
-- [ ] Add backend tests for student, training day, and payment APIs
+- [x] Add backend tests for student, training day, and payment APIs
 - [ ] Add end-to-end tests for registering a student and updating training days
-- [ ] Add build verification
-- [ ] Add a short manual QA checklist in `docs/qa-checklist.md`
+- [x] Add build verification
+- [x] Add a short manual QA checklist in `docs/qa-checklist.md`
 
 Success criteria:
 

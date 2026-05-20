@@ -73,7 +73,9 @@ def get_dashboard_data(today: date | None = None) -> dict[str, Any]:
                 training_days.training_date,
                 training_days.training_time,
                 training_days.status,
-                training_days.instructor_name
+                training_days.instructor_name,
+                training_days.vehicle_number,
+                training_days.notes
             FROM training_days
             JOIN students ON students.id = training_days.student_id
             WHERE training_days.training_date = ?

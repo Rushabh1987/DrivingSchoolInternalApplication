@@ -231,3 +231,89 @@ def test_list_students_search_no_results(monkeypatch, tmp_path):
     response = client.get("/students?search=zzznomatch")
 
     assert response.json() == []
+
+
+# --- Student detail, update, and archive ---
+
+def test_get_student_returns_full_profile(monkeypatch, tmp_path):
+    use_temp_database(monkeypatch, tmp_path)
+    client = TestClient(app)
+
+    created = client.post("/students", json=valid_student_payload()).json()
+    response = client.get(f"/students/{created['id']}")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["full_name"] == "Rushabh Pawar"
+    assert "training_days" in data
+    assert "payments" in data
+    assert "activity_log" in data
+
+
+def test_get_student_not_found(monkeypatch, tmp_path):
+    use_temp_database(monkeypatch, tmp_path)
+    response = TestClient(app).get("/students/9999")
+    assert response.status_code == 404
+
+
+def test_update_student(monkeypatch, tmp_path):
+    use_temp_database(monkeypatch, tmp_path)
+    client = TestClient(app)
+
+    created = client.post("/students", json=valid_student_payload()).json()
+    payload = {**valid_student_payload(), "full_name": "Rushabh Pawar Updated", "status": "completed"}
+    response = client.put(f"/students/{created['id']}", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["full_name"] == "Rushabh Pawar Updated"
+    assert response.json()["status"] == "completed"
+
+
+def test_update_student_not_found(monkeypatch, tmp_path):
+    use_temp_database(monkeypatch, tmp_path)
+    response = TestClient(app).put("/students/9999", json=valid_student_payload())
+    assert response.status_code == 404
+
+
+def test_archive_student(monkeypatch, tmp_path):
+    use_temp_database(monkeypatch, tmp_path)
+    client = TestClient(app)
+
+    created = client.post("/students", json=valid_student_payload()).json()
+    response = client.patch(f"/students/{created['id']}/archive")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "archived"
+
+
+def test_archive_already_archived_returns_conflict(monkeypatch, tmp_path):
+    use_temp_database(monkeypatch, tmp_path)
+    client = TestClient(app)
+
+    created = client.post("/students", json=valid_student_payload()).json()
+    client.patch(f"/students/{created['id']}/archive")
+    response = client.patch(f"/students/{created['id']}/archive")
+
+    assert response.status_code == 409
+
+
+def test_archived_student_hidden_from_default_list(monkeypatch, tmp_path):
+    use_temp_database(monkeypatch, tmp_path)
+    client = TestClient(app)
+
+    created = client.post("/students", json=valid_student_payload()).json()
+    client.patch(f"/students/{created['id']}/archive")
+
+    assert client.get("/students").json() == []
+
+
+def test_archived_student_visible_with_archived_filter(monkeypatch, tmp_path):
+    use_temp_database(monkeypatch, tmp_path)
+    client = TestClient(app)
+
+    created = client.post("/students", json=valid_student_payload()).json()
+    client.patch(f"/students/{created['id']}/archive")
+
+    students = client.get("/students?status=archived").json()
+    assert len(students) == 1
+    assert students[0]["status"] == "archived"

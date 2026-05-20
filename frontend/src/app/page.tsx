@@ -533,47 +533,103 @@ function AppHeader({
   onLogout: () => void;
   onViewChange: (view: ViewName) => void;
 }) {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const navItems: { label: string; value: ViewName }[] = [
+    { label: "Dashboard", value: "dashboard" },
+    { label: "Students", value: "students" },
+    { label: "Add Student", value: "add-student" },
+    { label: "Reports", value: "reports" },
+  ];
+
+  function handleNavClick(view: ViewName) {
+    onViewChange(view);
+    setMobileNavOpen(false);
+  }
+
+  function handleLogout() {
+    setMobileNavOpen(false);
+    onLogout();
+  }
+
   return (
     <header className="border-b border-[#d1d5db] bg-white">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <div>
           <p className="text-sm font-medium text-[#6b7280]">Admin</p>
           <h1 className="text-2xl font-semibold">Driving School</h1>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <nav className="flex gap-2 overflow-x-auto text-sm font-medium">
-            <NavButton
-              active={activeView === "dashboard"}
-              label="Dashboard"
-              onClick={() => onViewChange("dashboard")}
-            />
-            <NavButton
-              active={activeView === "students"}
-              label="Students"
-              onClick={() => onViewChange("students")}
-            />
-            <NavButton
-              active={activeView === "add-student"}
-              label="Add Student"
-              onClick={() => onViewChange("add-student")}
-            />
-            <NavButton
-              active={activeView === "reports"}
-              label="Reports"
-              onClick={() => onViewChange("reports")}
-            />
+        {/* Desktop nav */}
+        <div className="hidden sm:flex sm:items-center sm:gap-3">
+          <nav className="flex gap-2 text-sm font-medium">
+            {navItems.map((item) => (
+              <NavButton
+                active={activeView === item.value}
+                key={item.value}
+                label={item.label}
+                onClick={() => handleNavClick(item.value)}
+              />
+            ))}
           </nav>
-
           <button
             className="min-h-10 rounded-md border border-[#d1d5db] px-3 py-2 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
-            onClick={onLogout}
+            onClick={handleLogout}
             type="button"
           >
             Logout
           </button>
         </div>
+
+        {/* Mobile hamburger button */}
+        <button
+          aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+          className="flex h-10 w-10 items-center justify-center rounded-md border border-[#d1d5db] text-[#1f2937] transition hover:bg-[#f3f4f6] sm:hidden"
+          onClick={() => setMobileNavOpen((open) => !open)}
+          type="button"
+        >
+          {mobileNavOpen ? (
+            <svg fill="none" height="20" stroke="currentColor" viewBox="0 0 24 24" width="20">
+              <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+            </svg>
+          ) : (
+            <svg fill="none" height="20" stroke="currentColor" viewBox="0 0 24 24" width="20">
+              <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+            </svg>
+          )}
+        </button>
       </div>
+
+      {/* Mobile nav dropdown */}
+      {mobileNavOpen ? (
+        <div className="border-t border-[#d1d5db] sm:hidden">
+          <nav className="flex flex-col px-2 py-2">
+            {navItems.map((item) => (
+              <button
+                className={`rounded-md px-3 py-3 text-left text-sm font-medium transition ${
+                  activeView === item.value
+                    ? "bg-[#1f2937] text-white"
+                    : "text-[#1f2937] hover:bg-[#f3f4f6]"
+                }`}
+                key={item.value}
+                onClick={() => handleNavClick(item.value)}
+                type="button"
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+          <div className="border-t border-[#d1d5db] px-2 py-2">
+            <button
+              className="w-full rounded-md border border-[#d1d5db] px-3 py-3 text-left text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
+              onClick={handleLogout}
+              type="button"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 }
