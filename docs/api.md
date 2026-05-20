@@ -12,7 +12,7 @@ Response shape:
 
 ```json
 {
-  "date": "2026-05-19",
+  "date": "2026-05-20",
   "counts": {
     "totalStudents": 0,
     "activeStudents": 0,
@@ -20,8 +20,27 @@ Response shape:
     "pendingPayments": 0,
     "pendingPaymentAmount": 0
   },
-  "recentStudents": [],
-  "todaysTraining": []
+  "recentStudents": [
+    {
+      "id": 1,
+      "full_name": "Student Name",
+      "phone": "9876543210",
+      "joining_date": "2026-05-20",
+      "status": "active",
+      "created_at": "2026-05-20 10:00:00"
+    }
+  ],
+  "todaysTraining": [
+    {
+      "id": 1,
+      "student_id": 1,
+      "student_name": "Student Name",
+      "training_date": "2026-05-20",
+      "training_time": "10:00",
+      "status": "planned",
+      "instructor_name": "Instructor Name"
+    }
+  ]
 }
 ```
 
@@ -72,3 +91,29 @@ Returns `404` if not found. Duplicate phone returns `409`.
 Archives the student (sets `status` to `archived` and records `archived_at`). No request body needed.
 
 Returns `404` if not found. Returns `409` if already archived.
+
+## `POST /students/{id}/training-days`
+
+Adds a training day for a student.
+
+Required request fields:
+
+- `training_date` — `YYYY-MM-DD`
+
+Optional request fields:
+
+- `training_time` — `HH:MM`
+- `status` — `planned`, `completed`, `cancelled`, or `missed` (default: `planned`)
+- `instructor_name`
+
+Returns the created training day with `201`. Returns `404` if the student is not found.
+
+## `PUT /training-days/{id}`
+
+Updates a training day. Accepts the same fields as `POST /students/{id}/training-days`.
+
+Returns the updated training day. Returns `404` if not found.
+
+## `DELETE /training-days/{id}`
+
+Deletes a training day. Returns `204` on success. Returns `404` if not found.

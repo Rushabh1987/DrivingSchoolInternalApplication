@@ -38,3 +38,25 @@
 2. Click `Archive`.
 3. A `Confirm Archive` button appears — click it to proceed.
 4. The student is archived and removed from the active students list. Archived students remain searchable with the `All` filter.
+
+## Add Training Day
+
+1. Open the student profile.
+2. In the Training Days section, click `Add Training Day`.
+3. Fill in the date (required), time, status, and instructor name.
+4. Click `Save`.
+5. The training day appears in the list immediately.
+
+## Edit Training Day
+
+1. Open the student profile.
+2. In the Training Days section, click `Edit` on the training day row or card.
+3. Update the fields and click `Save`.
+4. The list refreshes with the updated values.
+
+## Delete Training Day
+
+1. Open the student profile.
+2. In the Training Days section, click `Delete` on the training day row or card.
+3. A `Confirm` button appears — click it to proceed.
+4. The training day is removed from the list.

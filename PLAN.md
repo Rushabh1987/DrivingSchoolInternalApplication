@@ -158,7 +158,7 @@ Success criteria:
 Goal: let the admin update each student's training days simply.
 
 - [x] Add training day list on student profile
-- [x] Add training day form with date, time, status, instructor name, vehicle number, and notes
+- [x] Add training day form with date, time, status, and instructor name
 - [x] Support statuses: planned, completed, cancelled, and missed
 - [x] Allow admin to edit or remove a training day
 - [x] Show today's training days on dashboard

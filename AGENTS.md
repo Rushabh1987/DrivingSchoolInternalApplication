@@ -27,7 +27,7 @@ For the MVP, the admin session should expire after 12 hours. Closing the browser
 
 For the MVP, there will be no theory classes, classroom management, student portal, advanced HR, or complicated fleet management.
 
-For the MVP, training days only need to store date, time, status, instructor name, vehicle number, and notes.
+For the MVP, training days only need to store date, time, status, and instructor name. Vehicle number and notes columns exist in the database for future use but are not shown in current UI forms.
 
 For the MVP, payments should stay simple: total fees, paid amount, pending amount, payment history, method, and note.
 
@@ -89,15 +89,12 @@ Student status options:
 
 ## Training Day Fields
 
-Each training day should include:
+The training day form collects:
 
-- Student
-- Date
+- Date (required)
 - Time
 - Status
 - Instructor name
-- Vehicle number
-- Notes
 
 Training day status options:
 

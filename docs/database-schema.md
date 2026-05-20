@@ -52,8 +52,8 @@ Fields:
 - `training_time` - optional time, stored as `HH:MM`
 - `status` - `planned`, `completed`, `cancelled`, or `missed`
 - `instructor_name` - optional instructor name
-- `vehicle_number` - optional vehicle number
-- `notes` - optional notes
+- `vehicle_number` - not shown in current UI forms
+- `notes` - not shown in current UI forms
 - `created_at` - created timestamp
 - `updated_at` - updated timestamp
 
