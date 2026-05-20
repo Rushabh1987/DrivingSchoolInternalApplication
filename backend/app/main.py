@@ -8,6 +8,14 @@ from fastapi.staticfiles import StaticFiles
 from .dashboard import get_dashboard_data
 from .database import database_path, initialize_database, verify_database
 from .payments import PaymentCreate, create_payment
+from .reports import (
+    export_payments_csv,
+    export_students_csv,
+    get_payments_report,
+    get_pending_fees_report,
+    get_students_report,
+    get_training_days_report,
+)
 from .students import StudentCreate, StudentUpdate, archive_student, create_student, get_student, list_students, update_student
 from .training_days import TrainingDayCreate, create_training_day, delete_training_day, update_training_day
 
@@ -99,6 +107,45 @@ def update_training_day_route(day_id: int, payload: TrainingDayCreate) -> dict:
 @app.delete("/training-days/{day_id}", status_code=204)
 def delete_training_day_route(day_id: int) -> None:
     delete_training_day(day_id)
+
+
+@app.get("/reports/students")
+def report_students(status: str | None = Query(default=None)) -> dict:
+    return get_students_report(status=status)
+
+
+@app.get("/reports/students/csv")
+def report_students_csv(status: str | None = Query(default=None)):
+    return export_students_csv(status=status)
+
+
+@app.get("/reports/payments")
+def report_payments(
+    from_date: str | None = Query(default=None),
+    to_date: str | None = Query(default=None),
+) -> dict:
+    return get_payments_report(from_date=from_date, to_date=to_date)
+
+
+@app.get("/reports/payments/csv")
+def report_payments_csv(
+    from_date: str | None = Query(default=None),
+    to_date: str | None = Query(default=None),
+):
+    return export_payments_csv(from_date=from_date, to_date=to_date)
+
+
+@app.get("/reports/pending-fees")
+def report_pending_fees() -> dict:
+    return get_pending_fees_report()
+
+
+@app.get("/reports/training-days")
+def report_training_days(
+    from_date: str | None = Query(default=None),
+    to_date: str | None = Query(default=None),
+) -> dict:
+    return get_training_days_report(from_date=from_date, to_date=to_date)
 
 
 static_dir = Path(__file__).resolve().parents[1] / "static"

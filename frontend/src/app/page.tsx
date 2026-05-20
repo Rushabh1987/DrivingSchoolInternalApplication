@@ -10,7 +10,7 @@ const SESSION_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 
 const SESSION_CHANGE_EVENT = "driving-school-session-change";
 
-type ViewName = "dashboard" | "add-student" | "students" | "student-profile";
+type ViewName = "dashboard" | "add-student" | "students" | "student-profile" | "reports";
 
 type StoredSession = {
   status: "signed-in";
@@ -122,6 +122,65 @@ type ProfileState =
   | { status: "loading" }
   | { status: "ready"; data: StudentDetail }
   | { status: "error"; message: string };
+
+type ReportTab = "students" | "payments" | "pending-fees" | "training-days";
+
+type StudentReportRow = {
+  id: number;
+  full_name: string;
+  phone: string;
+  course_type: string;
+  joining_date: string;
+  status: string;
+  total_fee_amount: number;
+  paid_amount: number;
+  pending_amount: number;
+};
+
+type PaymentReportRow = {
+  id: number;
+  payment_date: string;
+  amount: number;
+  method: string;
+  receipt_number: string;
+  notes: string;
+  full_name: string;
+  phone: string;
+};
+
+type TrainingDayReportRow = {
+  id: number;
+  training_date: string;
+  training_time: string;
+  status: string;
+  instructor_name: string;
+  full_name: string;
+  phone: string;
+};
+
+type StudentsReportData = {
+  students: StudentReportRow[];
+  counts: Record<string, number>;
+  total: number;
+};
+
+type PaymentsReportData = {
+  payments: PaymentReportRow[];
+  total_amount: number;
+  count: number;
+};
+
+type PendingFeesReportData = {
+  students: StudentReportRow[];
+  total_pending: number;
+  count: number;
+};
+
+type TrainingDaysReportData = {
+  training_days: TrainingDayReportRow[];
+  counts: Record<string, number>;
+  total: number;
+};
 
 type TrainingDayFormState = {
   training_date: string;
@@ -458,6 +517,8 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
             studentId={selectedStudentId}
           />
         ) : null}
+
+        {view === "reports" ? <ReportsView /> : null}
       </main>
     </div>
   );
@@ -496,6 +557,11 @@ function AppHeader({
               active={activeView === "add-student"}
               label="Add Student"
               onClick={() => onViewChange("add-student")}
+            />
+            <NavButton
+              active={activeView === "reports"}
+              label="Reports"
+              onClick={() => onViewChange("reports")}
             />
           </nav>
 
@@ -1840,6 +1906,599 @@ function PaymentsSection({
         )}
       </div>
     </section>
+  );
+}
+
+async function downloadCsv(url: string, filename: string) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return;
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(objectUrl);
+  } catch {
+    // silently fail
+  }
+}
+
+function ReportsView() {
+  const [activeTab, setActiveTab] = useState<ReportTab>("students");
+
+  const tabs: { label: string; value: ReportTab }[] = [
+    { label: "Students", value: "students" },
+    { label: "Payments", value: "payments" },
+    { label: "Pending Fees", value: "pending-fees" },
+    { label: "Training Days", value: "training-days" },
+  ];
+
+  return (
+    <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+      <div>
+        <h2 className="text-xl font-semibold">Reports</h2>
+        <p className="text-sm text-[#6b7280]">View summaries and export data.</p>
+      </div>
+
+      <div className="mt-4 flex gap-1 overflow-x-auto border-b border-[#d1d5db]">
+        {tabs.map((tab) => (
+          <button
+            className={`whitespace-nowrap px-4 py-2 text-sm font-medium -mb-px border-b-2 transition ${
+              activeTab === tab.value
+                ? "border-[#2563eb] text-[#2563eb]"
+                : "border-transparent text-[#6b7280] hover:text-[#1f2937]"
+            }`}
+            key={tab.value}
+            onClick={() => setActiveTab(tab.value)}
+            type="button"
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-5">
+        {activeTab === "students" ? <StudentsReport /> : null}
+        {activeTab === "payments" ? <PaymentsReport /> : null}
+        {activeTab === "pending-fees" ? <PendingFeesReport /> : null}
+        {activeTab === "training-days" ? <TrainingDaysReport /> : null}
+      </div>
+    </section>
+  );
+}
+
+function StudentsReport() {
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [reportState, setReportState] = useState<
+    { status: "loading" } | { status: "ready"; data: StudentsReportData } | { status: "error"; message: string }
+  >({ status: "loading" });
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function load() {
+      setReportState({ status: "loading" });
+      try {
+        const params = new URLSearchParams();
+        if (statusFilter !== "all") params.set("status", statusFilter);
+        const response = await fetch(`${getApiBaseUrl()}/reports/students?${params}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Request failed with ${response.status}`);
+        const data = (await response.json()) as StudentsReportData;
+        if (!isCancelled) setReportState({ status: "ready", data });
+      } catch {
+        if (!isCancelled) setReportState({ status: "error", message: "Could not load students report." });
+      }
+    }
+
+    void load();
+    return () => { isCancelled = true; };
+  }, [statusFilter]);
+
+  const statusOptions = [
+    { label: "All", value: "all" },
+    { label: "Active", value: "active" },
+    { label: "Paused", value: "paused" },
+    { label: "Completed", value: "completed" },
+    { label: "Archived", value: "archived" },
+  ];
+
+  const data = reportState.status === "ready" ? reportState.data : null;
+
+  function handleExport() {
+    const params = new URLSearchParams();
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    void downloadCsv(`${getApiBaseUrl()}/reports/students/csv?${params}`, "students.csv");
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-1">
+          {statusOptions.map((opt) => (
+            <button
+              className={`whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ${
+                statusFilter === opt.value ? "bg-[#1f2937] text-white" : "text-[#6b7280] hover:bg-[#f3f4f6]"
+              }`}
+              key={opt.value}
+              onClick={() => setStatusFilter(opt.value)}
+              type="button"
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <button
+          className="min-h-10 rounded-md border border-[#d1d5db] px-3 py-2 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
+          onClick={handleExport}
+          type="button"
+        >
+          Export CSV
+        </button>
+      </div>
+
+      {data ? (
+        <div className="flex flex-wrap gap-3">
+          {["active", "paused", "completed", "archived"].map((s) => (
+            data.counts[s] !== undefined ? (
+              <div className="rounded-md border border-[#d1d5db] px-3 py-2 text-sm" key={s}>
+                <span className="text-[#6b7280]">{titleCase(s)}: </span>
+                <span className="font-semibold">{data.counts[s]}</span>
+              </div>
+            ) : null
+          ))}
+        </div>
+      ) : null}
+
+      {reportState.status === "loading" ? <p className="text-sm text-[#6b7280]">Loading...</p> : null}
+      {reportState.status === "error" ? <Alert tone="danger">{reportState.message}</Alert> : null}
+
+      {reportState.status === "ready" && data!.students.length === 0 ? (
+        <p className="rounded-md border border-dashed border-[#d1d5db] p-6 text-center text-sm text-[#6b7280]">
+          No students match the selected filter.
+        </p>
+      ) : null}
+
+      {reportState.status === "ready" && data!.students.length > 0 ? (
+        <>
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#d1d5db] text-[#6b7280]">
+                  <th className="py-2 pr-4 font-semibold">Name</th>
+                  <th className="py-2 pr-4 font-semibold">Phone</th>
+                  <th className="py-2 pr-4 font-semibold">Course</th>
+                  <th className="py-2 pr-4 font-semibold">Joining</th>
+                  <th className="py-2 pr-4 font-semibold">Status</th>
+                  <th className="py-2 pr-4 font-semibold">Total Fee</th>
+                  <th className="py-2 pr-4 font-semibold">Paid</th>
+                  <th className="py-2 font-semibold">Pending</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data!.students.map((student) => (
+                  <tr className="border-b border-[#d1d5db]" key={student.id}>
+                    <td className="py-2 pr-4 font-medium">{student.full_name}</td>
+                    <td className="py-2 pr-4 text-[#6b7280]">{student.phone}</td>
+                    <td className="py-2 pr-4 text-[#6b7280]">{student.course_type || "-"}</td>
+                    <td className="py-2 pr-4 text-[#6b7280]">{formatDate(student.joining_date)}</td>
+                    <td className="py-2 pr-4"><StatusBadge status={student.status} /></td>
+                    <td className="py-2 pr-4 text-[#6b7280]">{formatCurrency(student.total_fee_amount)}</td>
+                    <td className="py-2 pr-4 text-[#2f9e44]">{formatCurrency(student.paid_amount)}</td>
+                    <td className={`py-2 font-medium ${student.pending_amount > 0 ? "text-[#d64545]" : "text-[#2f9e44]"}`}>
+                      {formatCurrency(student.pending_amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="space-y-2 md:hidden">
+            {data!.students.map((student) => (
+              <div className="rounded-md border border-[#d1d5db] p-3" key={student.id}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">{student.full_name}</p>
+                    <p className="text-sm text-[#6b7280]">{student.phone}</p>
+                  </div>
+                  <StatusBadge status={student.status} />
+                </div>
+                <p className="mt-1 text-sm text-[#6b7280]">{student.course_type || "No course"} - Joined {formatDate(student.joining_date)}</p>
+                <p className={`mt-1 text-sm font-medium ${student.pending_amount > 0 ? "text-[#d64545]" : "text-[#2f9e44]"}`}>
+                  Pending {formatCurrency(student.pending_amount)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function PaymentsReport() {
+  const today = new Date().toISOString().slice(0, 10);
+  const firstOfMonth = today.slice(0, 7) + "-01";
+  const [fromDate, setFromDate] = useState(firstOfMonth);
+  const [toDate, setToDate] = useState(today);
+  const [reportState, setReportState] = useState<
+    { status: "loading" } | { status: "ready"; data: PaymentsReportData } | { status: "error"; message: string }
+  >({ status: "loading" });
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function load() {
+      setReportState({ status: "loading" });
+      try {
+        const params = new URLSearchParams();
+        if (fromDate) params.set("from_date", fromDate);
+        if (toDate) params.set("to_date", toDate);
+        const response = await fetch(`${getApiBaseUrl()}/reports/payments?${params}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Request failed with ${response.status}`);
+        const data = (await response.json()) as PaymentsReportData;
+        if (!isCancelled) setReportState({ status: "ready", data });
+      } catch {
+        if (!isCancelled) setReportState({ status: "error", message: "Could not load payments report." });
+      }
+    }
+
+    void load();
+    return () => { isCancelled = true; };
+  }, [fromDate, toDate]);
+
+  const data = reportState.status === "ready" ? reportState.data : null;
+
+  function handleExport() {
+    const params = new URLSearchParams();
+    if (fromDate) params.set("from_date", fromDate);
+    if (toDate) params.set("to_date", toDate);
+    void downloadCsv(`${getApiBaseUrl()}/reports/payments/csv?${params}`, "payments.csv");
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-wrap gap-3">
+          <div>
+            <label className="text-sm font-medium" htmlFor="pay-from">From</label>
+            <input
+              className="mt-1 block min-h-10 rounded-md border border-[#d1d5db] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              id="pay-from"
+              onChange={(e) => setFromDate(e.target.value)}
+              type="date"
+              value={fromDate}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium" htmlFor="pay-to">To</label>
+            <input
+              className="mt-1 block min-h-10 rounded-md border border-[#d1d5db] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+              id="pay-to"
+              onChange={(e) => setToDate(e.target.value)}
+              type="date"
+              value={toDate}
+            />
+          </div>
+        </div>
+        <button
+          className="min-h-10 rounded-md border border-[#d1d5db] px-3 py-2 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
+          onClick={handleExport}
+          type="button"
+        >
+          Export CSV
+        </button>
+      </div>
+
+      {data ? (
+        <div className="flex flex-wrap gap-3">
+          <div className="rounded-md border border-[#d1d5db] px-3 py-2 text-sm">
+            <span className="text-[#6b7280]">Payments: </span>
+            <span className="font-semibold">{data.count}</span>
+          </div>
+          <div className="rounded-md border border-[#d1d5db] px-3 py-2 text-sm">
+            <span className="text-[#6b7280]">Total collected: </span>
+            <span className="font-semibold text-[#2f9e44]">{formatCurrency(data.total_amount)}</span>
+          </div>
+        </div>
+      ) : null}
+
+      {reportState.status === "loading" ? <p className="text-sm text-[#6b7280]">Loading...</p> : null}
+      {reportState.status === "error" ? <Alert tone="danger">{reportState.message}</Alert> : null}
+
+      {reportState.status === "ready" && data!.payments.length === 0 ? (
+        <p className="rounded-md border border-dashed border-[#d1d5db] p-6 text-center text-sm text-[#6b7280]">
+          No payments found for the selected date range.
+        </p>
+      ) : null}
+
+      {reportState.status === "ready" && data!.payments.length > 0 ? (
+        <>
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#d1d5db] text-[#6b7280]">
+                  <th className="py-2 pr-4 font-semibold">Date</th>
+                  <th className="py-2 pr-4 font-semibold">Student</th>
+                  <th className="py-2 pr-4 font-semibold">Phone</th>
+                  <th className="py-2 pr-4 font-semibold">Amount</th>
+                  <th className="py-2 pr-4 font-semibold">Method</th>
+                  <th className="py-2 pr-4 font-semibold">Receipt</th>
+                  <th className="py-2 font-semibold">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data!.payments.map((payment) => (
+                  <tr className="border-b border-[#d1d5db]" key={payment.id}>
+                    <td className="py-2 pr-4">{formatDate(payment.payment_date)}</td>
+                    <td className="py-2 pr-4 font-medium">{payment.full_name}</td>
+                    <td className="py-2 pr-4 text-[#6b7280]">{payment.phone}</td>
+                    <td className="py-2 pr-4 font-medium text-[#2f9e44]">{formatCurrency(payment.amount)}</td>
+                    <td className="py-2 pr-4 text-[#6b7280]">{titleCase(payment.method)}</td>
+                    <td className="py-2 pr-4 text-[#6b7280]">{payment.receipt_number || "-"}</td>
+                    <td className="py-2 text-[#6b7280]">{payment.notes || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="space-y-2 md:hidden">
+            {data!.payments.map((payment) => (
+              <div className="rounded-md border border-[#d1d5db] p-3" key={payment.id}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium text-[#2f9e44]">{formatCurrency(payment.amount)}</p>
+                  <p className="text-sm text-[#6b7280]">{formatDate(payment.payment_date)}</p>
+                </div>
+                <p className="mt-1 font-medium">{payment.full_name}</p>
+                <p className="mt-0.5 text-sm text-[#6b7280]">
+                  {titleCase(payment.method)}{payment.receipt_number ? ` - ${payment.receipt_number}` : ""}
+                </p>
+                {payment.notes ? <p className="mt-0.5 text-sm text-[#6b7280]">{payment.notes}</p> : null}
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function PendingFeesReport() {
+  const [reportState, setReportState] = useState<
+    { status: "loading" } | { status: "ready"; data: PendingFeesReportData } | { status: "error"; message: string }
+  >({ status: "loading" });
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function load() {
+      setReportState({ status: "loading" });
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/reports/pending-fees`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Request failed with ${response.status}`);
+        const data = (await response.json()) as PendingFeesReportData;
+        if (!isCancelled) setReportState({ status: "ready", data });
+      } catch {
+        if (!isCancelled) setReportState({ status: "error", message: "Could not load pending fees report." });
+      }
+    }
+
+    void load();
+    return () => { isCancelled = true; };
+  }, []);
+
+  const data = reportState.status === "ready" ? reportState.data : null;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {data ? (
+        <div className="flex flex-wrap gap-3">
+          <div className="rounded-md border border-[#d1d5db] px-3 py-2 text-sm">
+            <span className="text-[#6b7280]">Students with pending fees: </span>
+            <span className="font-semibold">{data.count}</span>
+          </div>
+          <div className="rounded-md border border-[#d1d5db] px-3 py-2 text-sm">
+            <span className="text-[#6b7280]">Total pending: </span>
+            <span className="font-semibold text-[#d64545]">{formatCurrency(data.total_pending)}</span>
+          </div>
+        </div>
+      ) : null}
+
+      {reportState.status === "loading" ? <p className="text-sm text-[#6b7280]">Loading...</p> : null}
+      {reportState.status === "error" ? <Alert tone="danger">{reportState.message}</Alert> : null}
+
+      {reportState.status === "ready" && data!.students.length === 0 ? (
+        <p className="rounded-md border border-dashed border-[#d1d5db] p-6 text-center text-sm text-[#6b7280]">
+          No students have pending fees.
+        </p>
+      ) : null}
+
+      {reportState.status === "ready" && data!.students.length > 0 ? (
+        <>
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#d1d5db] text-[#6b7280]">
+                  <th className="py-2 pr-4 font-semibold">Name</th>
+                  <th className="py-2 pr-4 font-semibold">Phone</th>
+                  <th className="py-2 pr-4 font-semibold">Course</th>
+                  <th className="py-2 pr-4 font-semibold">Status</th>
+                  <th className="py-2 pr-4 font-semibold">Total Fee</th>
+                  <th className="py-2 pr-4 font-semibold">Paid</th>
+                  <th className="py-2 font-semibold">Pending</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data!.students.map((student) => (
+                  <tr className="border-b border-[#d1d5db]" key={student.id}>
+                    <td className="py-2 pr-4 font-medium">{student.full_name}</td>
+                    <td className="py-2 pr-4 text-[#6b7280]">{student.phone}</td>
+                    <td className="py-2 pr-4 text-[#6b7280]">{student.course_type || "-"}</td>
+                    <td className="py-2 pr-4"><StatusBadge status={student.status} /></td>
+                    <td className="py-2 pr-4 text-[#6b7280]">{formatCurrency(student.total_fee_amount)}</td>
+                    <td className="py-2 pr-4 text-[#2f9e44]">{formatCurrency(student.paid_amount)}</td>
+                    <td className="py-2 font-medium text-[#d64545]">{formatCurrency(student.pending_amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="space-y-2 md:hidden">
+            {data!.students.map((student) => (
+              <div className="rounded-md border border-[#d1d5db] p-3" key={student.id}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">{student.full_name}</p>
+                    <p className="text-sm text-[#6b7280]">{student.phone}</p>
+                  </div>
+                  <StatusBadge status={student.status} />
+                </div>
+                <p className="mt-1 text-sm text-[#6b7280]">{student.course_type || "No course"}</p>
+                <div className="mt-2 flex gap-4 text-sm">
+                  <span className="text-[#6b7280]">Paid: <span className="font-medium text-[#2f9e44]">{formatCurrency(student.paid_amount)}</span></span>
+                  <span className="text-[#6b7280]">Pending: <span className="font-medium text-[#d64545]">{formatCurrency(student.pending_amount)}</span></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function TrainingDaysReport() {
+  const today = new Date().toISOString().slice(0, 10);
+  const firstOfMonth = today.slice(0, 7) + "-01";
+  const [fromDate, setFromDate] = useState(firstOfMonth);
+  const [toDate, setToDate] = useState(today);
+  const [reportState, setReportState] = useState<
+    { status: "loading" } | { status: "ready"; data: TrainingDaysReportData } | { status: "error"; message: string }
+  >({ status: "loading" });
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function load() {
+      setReportState({ status: "loading" });
+      try {
+        const params = new URLSearchParams();
+        if (fromDate) params.set("from_date", fromDate);
+        if (toDate) params.set("to_date", toDate);
+        const response = await fetch(`${getApiBaseUrl()}/reports/training-days?${params}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Request failed with ${response.status}`);
+        const data = (await response.json()) as TrainingDaysReportData;
+        if (!isCancelled) setReportState({ status: "ready", data });
+      } catch {
+        if (!isCancelled) setReportState({ status: "error", message: "Could not load training days report." });
+      }
+    }
+
+    void load();
+    return () => { isCancelled = true; };
+  }, [fromDate, toDate]);
+
+  const data = reportState.status === "ready" ? reportState.data : null;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap gap-3">
+        <div>
+          <label className="text-sm font-medium" htmlFor="td-from">From</label>
+          <input
+            className="mt-1 block min-h-10 rounded-md border border-[#d1d5db] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+            id="td-from"
+            onChange={(e) => setFromDate(e.target.value)}
+            type="date"
+            value={fromDate}
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium" htmlFor="td-to">To</label>
+          <input
+            className="mt-1 block min-h-10 rounded-md border border-[#d1d5db] bg-white px-3 py-2 text-sm outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
+            id="td-to"
+            onChange={(e) => setToDate(e.target.value)}
+            type="date"
+            value={toDate}
+          />
+        </div>
+      </div>
+
+      {data ? (
+        <div className="flex flex-wrap gap-3">
+          <div className="rounded-md border border-[#d1d5db] px-3 py-2 text-sm">
+            <span className="text-[#6b7280]">Total: </span>
+            <span className="font-semibold">{data.total}</span>
+          </div>
+          {["planned", "completed", "cancelled", "missed"].map((s) =>
+            data.counts[s] !== undefined ? (
+              <div className="rounded-md border border-[#d1d5db] px-3 py-2 text-sm" key={s}>
+                <span className="text-[#6b7280]">{titleCase(s)}: </span>
+                <span className="font-semibold">{data.counts[s]}</span>
+              </div>
+            ) : null
+          )}
+        </div>
+      ) : null}
+
+      {reportState.status === "loading" ? <p className="text-sm text-[#6b7280]">Loading...</p> : null}
+      {reportState.status === "error" ? <Alert tone="danger">{reportState.message}</Alert> : null}
+
+      {reportState.status === "ready" && data!.training_days.length === 0 ? (
+        <p className="rounded-md border border-dashed border-[#d1d5db] p-6 text-center text-sm text-[#6b7280]">
+          No training days found for the selected date range.
+        </p>
+      ) : null}
+
+      {reportState.status === "ready" && data!.training_days.length > 0 ? (
+        <>
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#d1d5db] text-[#6b7280]">
+                  <th className="py-2 pr-4 font-semibold">Date</th>
+                  <th className="py-2 pr-4 font-semibold">Student</th>
+                  <th className="py-2 pr-4 font-semibold">Phone</th>
+                  <th className="py-2 pr-4 font-semibold">Time</th>
+                  <th className="py-2 pr-4 font-semibold">Status</th>
+                  <th className="py-2 font-semibold">Instructor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data!.training_days.map((day) => (
+                  <tr className="border-b border-[#d1d5db]" key={day.id}>
+                    <td className="py-2 pr-4">{formatDate(day.training_date)}</td>
+                    <td className="py-2 pr-4 font-medium">{day.full_name}</td>
+                    <td className="py-2 pr-4 text-[#6b7280]">{day.phone}</td>
+                    <td className="py-2 pr-4 text-[#6b7280]">{day.training_time || "-"}</td>
+                    <td className="py-2 pr-4"><StatusBadge status={day.status} /></td>
+                    <td className="py-2 text-[#6b7280]">{day.instructor_name || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="space-y-2 md:hidden">
+            {data!.training_days.map((day) => (
+              <div className="rounded-md border border-[#d1d5db] p-3" key={day.id}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">{day.full_name}</p>
+                    <p className="text-sm text-[#6b7280]">{formatDate(day.training_date)}{day.training_time ? ` at ${day.training_time}` : ""}</p>
+                  </div>
+                  <StatusBadge status={day.status} />
+                </div>
+                {day.instructor_name ? <p className="mt-1 text-sm text-[#6b7280]">{day.instructor_name}</p> : null}
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
   );
 }
 

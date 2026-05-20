@@ -194,11 +194,11 @@ Success criteria:
 
 Goal: give the admin basic business visibility.
 
-- [ ] Add students report by status
-- [ ] Add payments report by date range
-- [ ] Add pending fees report
-- [ ] Add training days report by date range
-- [ ] Add CSV export for students and payments
+- [x] Add students report by status
+- [x] Add payments report by date range
+- [x] Add pending fees report
+- [x] Add training days report by date range
+- [x] Add CSV export for students and payments
 
 Success criteria:
 
