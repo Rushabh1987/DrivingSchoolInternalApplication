@@ -4,8 +4,8 @@ import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
 const SESSION_KEY = "driving-school-admin-session";
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "password";
+const ADMIN_USERNAME = process.env.NEXT_PUBLIC_ADMIN_USERNAME ?? "admin";
+const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? "password";
 const SESSION_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 
 const SESSION_CHANGE_EVENT = "driving-school-session-change";
