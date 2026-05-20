@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+
+backend/data/
+backend/static/
+
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+

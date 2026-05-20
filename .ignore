@@ -1,0 +1,9 @@
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+backend/.venv/
+backend/data/
+backend/static/
+backend/app/__pycache__/
+backend/tests/__pycache__/

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Rushabh Pawar\\\\OneDrive\\\\Desktop\\\\AI Agent Course\\\\Driving School\" -Recurse | ForEach-Object { $_.FullName })",
+      "PowerShell(ls \"C:\\\\Users\\\\Rushabh Pawar\\\\OneDrive\\\\Desktop\\\\AI Agent Course\\\\Driving School\\\\frontend\" | Where-Object { $_.Name -notlike \"node_modules\" -and $_.Name -notlike \".next\" })",
+      "Bash(Get-ChildItem *)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Rushabh Pawar\\\\OneDrive\\\\Desktop\\\\AI Agent Course\\\\Driving School\\\\frontend\" -Depth 0 | Where-Object { $_.Name -match \"next\\\\.|tailwind\\\\.|tsconfig|package\" } | Select-Object -ExpandProperty FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Rushabh Pawar\\\\OneDrive\\\\Desktop\\\\AI Agent Course\\\\Driving School\\\\frontend\" -Depth 0 | Where-Object { $_.Name -match \"tailwind\" } | Select-Object -ExpandProperty FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Rushabh Pawar\\\\OneDrive\\\\Desktop\\\\AI Agent Course\\\\Driving School\\\\frontend\" -Force | Where-Object { $_.Name -match \"\\\\.env\" })",
+      "PowerShell(where.exe uv; $env:PATH)",
+      "PowerShell(Get-Command *)"
+    ]
+  }
+}
