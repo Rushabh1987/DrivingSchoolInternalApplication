@@ -182,12 +182,11 @@ def list_students(
             student_payment_summary.paid_amount,
             student_payment_summary.pending_amount,
             (
-                SELECT MIN(training_days.training_date)
+                SELECT COUNT(*)
                 FROM training_days
                 WHERE training_days.student_id = students.id
-                  AND training_days.training_date >= date('now')
-                  AND training_days.status = 'planned'
-            ) AS next_training_date
+                  AND training_days.status = 'completed'
+            ) AS completed_training_days
         FROM students
         JOIN student_payment_summary
             ON student_payment_summary.student_id = students.id

@@ -50,7 +50,7 @@ type StudentListItem = {
   total_fee_amount: number;
   paid_amount: number;
   pending_amount: number;
-  next_training_date: string | null;
+  completed_training_days: number;
 };
 
 type TrainingItem = {
@@ -493,6 +493,7 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
         {view === "dashboard" ? (
           <Dashboard
             onAddStudent={() => handleViewChange("add-student")}
+            onViewStudent={handleViewStudent}
             refreshKey={dataVersion}
             successMessage={successMessage}
           />
@@ -656,16 +657,19 @@ function NavButton({
 
 function Dashboard({
   onAddStudent,
+  onViewStudent,
   refreshKey,
   successMessage,
 }: {
   onAddStudent: () => void;
+  onViewStudent: (id: number) => void;
   refreshKey: number;
   successMessage: string;
 }) {
   const [dashboardState, setDashboardState] = useState<DashboardState>({
     status: "loading",
   });
+  const [students, setStudents] = useState<StudentListItem[]>([]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -695,7 +699,21 @@ function Dashboard({
       }
     }
 
+    async function loadStudents() {
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/students`, {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const data = (await response.json()) as StudentListItem[];
+        if (!isCancelled) setStudents(data);
+      } catch {
+        // non-critical, dashboard still works
+      }
+    }
+
     void loadDashboard();
+    void loadStudents();
 
     return () => {
       isCancelled = true;
@@ -735,7 +753,7 @@ function Dashboard({
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
-        <TrainingPanel data={data} />
+        <DashboardStudentList loading={!data} onViewStudent={onViewStudent} students={students} />
 
         <div className="flex flex-col gap-4">
           <QuickActions onAddStudent={onAddStudent} />
@@ -1026,7 +1044,7 @@ function StudentList({
               <th className="py-3 pr-4 font-semibold">Joining</th>
               <th className="py-3 pr-4 font-semibold">Pending</th>
               <th className="py-3 pr-4 font-semibold">Status</th>
-              <th className="py-3 pr-4 font-semibold">Next Training</th>
+              <th className="py-3 pr-4 font-semibold">Completed Days</th>
               <th className="py-3 font-semibold"></th>
             </tr>
           </thead>
@@ -1041,9 +1059,7 @@ function StudentList({
                 <td className="py-3 pr-4">
                   <StatusBadge status={student.status} />
                 </td>
-                <td className="py-3 pr-4 text-[#6b7280]">
-                  {student.next_training_date ? formatDate(student.next_training_date) : "-"}
-                </td>
+                <td className="py-3 pr-4 text-[#6b7280]">{student.completed_training_days}</td>
                 <td className="py-3">
                   <button
                     className="rounded-md border border-[#d1d5db] px-3 py-1.5 text-xs font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
@@ -1076,7 +1092,7 @@ function StudentList({
               Pending {formatCurrency(student.pending_amount)}
             </p>
             <p className="mt-1 text-sm text-[#6b7280]">
-              Next training: {student.next_training_date ? formatDate(student.next_training_date) : "None scheduled"}
+              Completed days: <span className="font-medium text-[#1f2937]">{student.completed_training_days}</span>
             </p>
             <div className="mt-3">
               <button
@@ -2569,38 +2585,49 @@ function StatusCard({
   );
 }
 
-function TrainingPanel({ data }: { data: DashboardData | null }) {
+function DashboardStudentList({
+  loading,
+  onViewStudent,
+  students,
+}: {
+  loading: boolean;
+  onViewStudent: (id: number) => void;
+  students: StudentListItem[];
+}) {
   return (
     <div className="rounded-lg border border-[#d1d5db] bg-white p-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Today&apos;s Training</h2>
-          <p className="text-sm text-[#6b7280]">{data ? formatDate(data.date) : "Loading..."}</p>
-        </div>
-      </div>
-
+      <h2 className="text-lg font-semibold">Students</h2>
       <div className="mt-4">
-        {!data ? (
-          <div className="rounded-md border border-dashed border-[#d1d5db] p-6 text-sm text-[#6b7280]">
-            Loading training days...
-          </div>
-        ) : data.todaysTraining.length === 0 ? (
-          <div className="rounded-md border border-dashed border-[#d1d5db] p-6 text-sm text-[#6b7280]">
-            No training days planned for today.
-          </div>
+        {loading ? (
+          <p className="text-sm text-[#6b7280]">Loading students...</p>
+        ) : students.length === 0 ? (
+          <p className="text-sm text-[#6b7280]">No students found.</p>
         ) : (
-          <div className="space-y-3">
-            {data.todaysTraining.map((item) => (
-              <div className="rounded-md border border-[#d1d5db] p-3" key={item.id}>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-semibold">{item.student_name}</p>
-                    <p className="text-sm text-[#6b7280]">
-                      {item.training_time || "Time not set"}
-                      {item.instructor_name ? ` - ${item.instructor_name}` : ""}
-                    </p>
-                  </div>
-                  <StatusBadge status={item.status} />
+          <div className="max-h-[480px] overflow-y-auto space-y-2 pr-1">
+            {students.map((student) => (
+              <div
+                className="flex items-center justify-between gap-3 rounded-md border border-[#d1d5db] p-3"
+                key={student.id}
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{student.full_name}</p>
+                  <p className="text-sm text-[#6b7280]">{student.phone}</p>
+                  <p className="mt-1 text-sm text-[#6b7280]">
+                    Completed: <span className="font-medium text-[#1f2937]">{student.completed_training_days}</span>
+                    {student.pending_amount > 0 && (
+                      <span className="ml-3 text-[#d64545]">Pending {formatCurrency(student.pending_amount)}</span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <StatusBadge status={student.status} />
+                  <button
+                    className="rounded-md border border-[#d1d5db] px-3 py-1 text-xs font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
+                    onClick={() => onViewStudent(student.id)}
+                    type="button"
+                  >
+                    View
+                  </button>
                 </div>
               </div>
             ))}
@@ -2622,12 +2649,6 @@ function QuickActions({ onAddStudent }: { onAddStudent: () => void }) {
           type="button"
         >
           Add Student
-        </button>
-        <button
-          className="min-h-11 rounded-md border border-[#d1d5db] px-4 py-2 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
-          type="button"
-        >
-          Update Training Day
         </button>
       </div>
     </div>

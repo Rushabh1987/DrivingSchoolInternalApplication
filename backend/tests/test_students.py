@@ -94,69 +94,6 @@ def test_list_students_returns_registered_students(monkeypatch, tmp_path):
     assert response.json()[0]["pending_amount"] == 15000
 
 
-def test_list_students_includes_next_training_date_field(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
-    client = TestClient(app)
-
-    client.post("/students", json=valid_student_payload())
-    response = client.get("/students")
-
-    assert "next_training_date" in response.json()[0]
-
-
-def test_list_students_next_training_date_future_planned(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
-    client = TestClient(app)
-
-    client.post("/students", json=valid_student_payload())
-    student_id = client.get("/students").json()[0]["id"]
-
-    with connect_database() as connection:
-        connection.execute(
-            "INSERT INTO training_days (student_id, training_date, status) VALUES (?, '2099-12-31', 'planned')",
-            (student_id,),
-        )
-        connection.commit()
-
-    response = client.get("/students")
-    assert response.json()[0]["next_training_date"] == "2099-12-31"
-
-
-def test_list_students_next_training_date_null_when_no_future_planned(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
-    client = TestClient(app)
-
-    client.post("/students", json=valid_student_payload())
-    student_id = client.get("/students").json()[0]["id"]
-
-    with connect_database() as connection:
-        connection.execute(
-            "INSERT INTO training_days (student_id, training_date, status) VALUES (?, '2020-01-01', 'completed')",
-            (student_id,),
-        )
-        connection.commit()
-
-    response = client.get("/students")
-    assert response.json()[0]["next_training_date"] is None
-
-
-def test_list_students_next_training_date_excludes_non_planned(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
-    client = TestClient(app)
-
-    client.post("/students", json=valid_student_payload())
-    student_id = client.get("/students").json()[0]["id"]
-
-    with connect_database() as connection:
-        connection.executemany(
-            "INSERT INTO training_days (student_id, training_date, status) VALUES (?, '2099-06-01', ?)",
-            [(student_id, "completed"), (student_id, "cancelled"), (student_id, "missed")],
-        )
-        connection.commit()
-
-    response = client.get("/students")
-    assert response.json()[0]["next_training_date"] is None
-
 
 def test_list_students_excludes_archived_by_default(monkeypatch, tmp_path):
     use_temp_database(monkeypatch, tmp_path)
