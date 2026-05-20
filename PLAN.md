@@ -99,9 +99,9 @@ Success criteria:
 Goal: allow the admin to add students into the database from the UI.
 
 - [x] Create student registration form
-- [x] Add required fields: name, phone, course type, joining date, and status
-- [x] Add optional fields: email, alternate phone, address, date of birth, license details, notes, and fees
-- [x] Validate required fields
+- [x] Add required fields: name, phone (10 digits), joining date, and status
+- [x] Add optional fields: address, date of birth, and fees
+- [x] Validate required fields and phone format (must be exactly 10 digits)
 - [x] Prevent obvious duplicate students by phone number
 - [x] Save the student to SQLite through the backend API
 - [x] Show success and error states clearly
@@ -136,15 +136,15 @@ Success criteria:
 
 Goal: show and update all important information for one student.
 
-- [ ] Show student personal details
-- [ ] Show course details
-- [ ] Show training days
-- [ ] Show payment summary
-- [ ] Show notes
-- [ ] Show simple activity history
-- [ ] Allow admin to edit student details
-- [ ] Allow admin to change student status
-- [ ] Allow admin to archive a student instead of deleting
+- [x] Show student personal details
+- [x] Show course details
+- [x] Show training days
+- [x] Show payment summary
+- [x] Show notes
+- [x] Show simple activity history
+- [x] Allow admin to edit student details
+- [x] Allow admin to change student status
+- [x] Allow admin to archive a student instead of deleting
 
 Success criteria:
 

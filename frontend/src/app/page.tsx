@@ -65,6 +65,68 @@ type TrainingItem = {
   notes: string;
 };
 
+type TrainingDayItem = {
+  id: number;
+  student_id: number;
+  training_date: string;
+  training_time: string;
+  status: string;
+  instructor_name: string;
+  vehicle_number: string;
+  notes: string;
+  created_at: string;
+};
+
+type PaymentRecord = {
+  id: number;
+  student_id: number;
+  payment_date: string;
+  amount: number;
+  method: string;
+  receipt_number: string;
+  notes: string;
+  created_at: string;
+};
+
+type ActivityLogItem = {
+  id: number;
+  student_id: number | null;
+  activity_type: string;
+  description: string;
+  created_at: string;
+};
+
+type StudentDetail = {
+  id: number;
+  full_name: string;
+  phone: string;
+  alternate_phone: string;
+  email: string;
+  address: string;
+  date_of_birth: string | null;
+  course_type: string;
+  joining_date: string;
+  status: string;
+  total_fee_amount: number;
+  paid_amount: number;
+  pending_amount: number;
+  learner_permit_number: string;
+  learner_permit_expiry_date: string | null;
+  license_number: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  training_days: TrainingDayItem[];
+  payments: PaymentRecord[];
+  activity_log: ActivityLogItem[];
+};
+
+type ProfileState =
+  | { status: "loading" }
+  | { status: "ready"; data: StudentDetail }
+  | { status: "error"; message: string };
+
 type DashboardState =
   | { status: "loading" }
   | { status: "ready"; data: DashboardData }
@@ -190,6 +252,18 @@ function formatDate(dateValue: string) {
     month: "short",
     year: "numeric",
   }).format(new Date(`${dateValue}T00:00:00`));
+}
+
+function formatTimestamp(value: string) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value.replace(" ", "T")));
 }
 
 function titleCase(value: string) {
@@ -319,6 +393,10 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
     setView("student-profile");
   }
 
+  function handleStudentUpdated() {
+    setDataVersion((version) => version + 1);
+  }
+
   return (
     <div className="min-h-screen bg-[#f3f4f6] text-[#1f2937]">
       <AppHeader activeView={view} onLogout={onLogout} onViewChange={handleViewChange} />
@@ -350,6 +428,7 @@ function AdminApp({ onLogout }: { onLogout: () => void }) {
         {view === "student-profile" ? (
           <StudentProfileView
             onBack={() => handleViewChange("students")}
+            onStudentUpdated={handleStudentUpdated}
             studentId={selectedStudentId}
           />
         ) : null}
@@ -538,8 +617,13 @@ function StudentRegistrationForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!form.full_name.trim() || !form.phone.trim() || !form.course_type.trim() || !form.joining_date) {
-      setSubmitState({ status: "error", message: "Name, phone, course, and joining date are required." });
+    if (!form.full_name.trim() || !form.phone.trim() || !form.joining_date) {
+      setSubmitState({ status: "error", message: "Name, phone, and joining date are required." });
+      return;
+    }
+
+    if (!/^\d{10}$/.test(form.phone.trim())) {
+      setSubmitState({ status: "error", message: "Phone number must be exactly 10 digits." });
       return;
     }
 
@@ -609,8 +693,7 @@ function StudentRegistrationForm({
       <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
         <div className="grid gap-4 md:grid-cols-2">
           <InputField label="Student name" name="full_name" onChange={(value) => updateField("full_name", value)} required value={form.full_name} />
-          <InputField label="Phone number" name="phone" onChange={(value) => updateField("phone", value)} required value={form.phone} />
-          <InputField label="Course type" name="course_type" onChange={(value) => updateField("course_type", value)} placeholder="Car, Two Wheeler, Refresher" required value={form.course_type} />
+          <InputField label="Phone number" name="phone" onChange={(value) => updateField("phone", value)} placeholder="10-digit number" required value={form.phone} />
           <InputField label="Joining date" name="joining_date" onChange={(value) => updateField("joining_date", value)} required type="date" value={form.joining_date} />
           <SelectField label="Status" name="status" onChange={(value) => updateField("status", value as StudentFormState["status"])} value={form.status}>
             <option value="active">Active</option>
@@ -618,19 +701,10 @@ function StudentRegistrationForm({
             <option value="completed">Completed</option>
           </SelectField>
           <InputField label="Total fees" name="total_fee_amount" onChange={(value) => updateField("total_fee_amount", value)} placeholder="0" type="number" value={form.total_fee_amount} />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <InputField label="Alternate phone" name="alternate_phone" onChange={(value) => updateField("alternate_phone", value)} value={form.alternate_phone} />
-          <InputField label="Email" name="email" onChange={(value) => updateField("email", value)} type="email" value={form.email} />
           <InputField label="Date of birth" name="date_of_birth" onChange={(value) => updateField("date_of_birth", value)} type="date" value={form.date_of_birth} />
-          <InputField label="Learner permit number" name="learner_permit_number" onChange={(value) => updateField("learner_permit_number", value)} value={form.learner_permit_number} />
-          <InputField label="Learner permit expiry" name="learner_permit_expiry_date" onChange={(value) => updateField("learner_permit_expiry_date", value)} type="date" value={form.learner_permit_expiry_date} />
-          <InputField label="License number" name="license_number" onChange={(value) => updateField("license_number", value)} value={form.license_number} />
         </div>
 
         <TextareaField label="Address" name="address" onChange={(value) => updateField("address", value)} value={form.address} />
-        <TextareaField label="Notes" name="notes" onChange={(value) => updateField("notes", value)} value={form.notes} />
 
         {submitState.status === "error" ? <Alert tone="danger">{submitState.message}</Alert> : null}
 
@@ -874,30 +948,429 @@ function StudentList({
 
 function StudentProfileView({
   onBack,
+  onStudentUpdated,
   studentId,
 }: {
   onBack: () => void;
+  onStudentUpdated: () => void;
   studentId: number | null;
 }) {
-  return (
-    <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+  const [profileState, setProfileState] = useState<ProfileState>({ status: "loading" });
+  const [mode, setMode] = useState<"view" | "edit">("view");
+  const [editForm, setEditForm] = useState<StudentFormState>(emptyStudentForm);
+  const [editState, setEditState] = useState<
+    { status: "idle" } | { status: "saving" } | { status: "error"; message: string }
+  >({ status: "idle" });
+  const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [archiveSaving, setArchiveSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    if (studentId === null) return;
+    let isCancelled = false;
+
+    async function loadStudent() {
+      setProfileState({ status: "loading" });
+      setMode("view");
+      setArchiveConfirm(false);
+      setSuccessMessage("");
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/students/${studentId}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
+        const data = (await response.json()) as StudentDetail;
+        if (!isCancelled) setProfileState({ status: "ready", data });
+      } catch {
+        if (!isCancelled) setProfileState({ status: "error", message: "Could not load student profile. Check that the backend is running." });
+      }
+    }
+
+    void loadStudent();
+    return () => { isCancelled = true; };
+  }, [studentId]);
+
+  function handleStartEdit() {
+    if (profileState.status !== "ready") return;
+    const d = profileState.data;
+    setEditForm({
+      full_name: d.full_name,
+      phone: d.phone,
+      course_type: d.course_type,
+      joining_date: d.joining_date,
+      status: (d.status === "archived" ? "active" : d.status) as StudentFormState["status"],
+      total_fee_amount: d.total_fee_amount > 0 ? String(d.total_fee_amount) : "",
+      alternate_phone: d.alternate_phone,
+      email: d.email,
+      address: d.address,
+      date_of_birth: d.date_of_birth ?? "",
+      learner_permit_number: d.learner_permit_number,
+      learner_permit_expiry_date: d.learner_permit_expiry_date ?? "",
+      license_number: d.license_number,
+      notes: d.notes,
+    });
+    setEditState({ status: "idle" });
+    setSuccessMessage("");
+    setMode("edit");
+  }
+
+  function updateEditField<K extends keyof StudentFormState>(field: K, value: StudentFormState[K]) {
+    setEditForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handleSaveEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!editForm.full_name.trim() || !editForm.phone.trim() || !editForm.joining_date) {
+      setEditState({ status: "error", message: "Name, phone, and joining date are required." });
+      return;
+    }
+
+    if (!/^\d{10}$/.test(editForm.phone.trim())) {
+      setEditState({ status: "error", message: "Phone number must be exactly 10 digits." });
+      return;
+    }
+
+    const totalFeeAmount = Number(editForm.total_fee_amount || 0);
+    if (Number.isNaN(totalFeeAmount) || totalFeeAmount < 0) {
+      setEditState({ status: "error", message: "Total fees must be zero or more." });
+      return;
+    }
+
+    setEditState({ status: "saving" });
+
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/students/${studentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...editForm,
+          date_of_birth: editForm.date_of_birth || null,
+          learner_permit_expiry_date: editForm.learner_permit_expiry_date || null,
+          total_fee_amount: totalFeeAmount,
+        }),
+      });
+
+      if (!response.ok) {
+        let message = "Student could not be updated.";
+        if (response.status === 409) message = "A student with this phone number already exists.";
+        else if (response.status === 422) message = "Please check required fields and try again.";
+        throw new Error(message);
+      }
+
+      const updated = (await response.json()) as StudentDetail;
+      setProfileState({ status: "ready", data: updated });
+      setEditState({ status: "idle" });
+      setMode("view");
+      setSuccessMessage("Student details saved.");
+      onStudentUpdated();
+    } catch (error) {
+      setEditState({
+        status: "error",
+        message: error instanceof Error ? error.message : "Student could not be updated.",
+      });
+    }
+  }
+
+  async function handleArchive() {
+    if (!archiveConfirm) {
+      setArchiveConfirm(true);
+      return;
+    }
+
+    setArchiveSaving(true);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/students/${studentId}/archive`, { method: "PATCH" });
+      if (!response.ok) throw new Error("Archive failed.");
+      onStudentUpdated();
+      onBack();
+    } catch {
+      setArchiveSaving(false);
+      setArchiveConfirm(false);
+    }
+  }
+
+  if (profileState.status === "loading") {
+    return (
+      <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+        <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Student Profile</h2>
-          <p className="text-sm text-[#6b7280]">Student ID: {studentId}</p>
+          <button className="min-h-10 rounded-md border border-[#d1d5db] px-3 py-2 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]" onClick={onBack} type="button">Back</button>
         </div>
-        <button
-          className="min-h-10 rounded-md border border-[#d1d5db] px-3 py-2 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
-          onClick={onBack}
-          type="button"
-        >
-          Back to Students
-        </button>
+        <p className="mt-6 text-sm text-[#6b7280]">Loading student profile...</p>
+      </section>
+    );
+  }
+
+  if (profileState.status === "error") {
+    return (
+      <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Student Profile</h2>
+          <button className="min-h-10 rounded-md border border-[#d1d5db] px-3 py-2 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]" onClick={onBack} type="button">Back</button>
+        </div>
+        <Alert tone="danger">{profileState.message}</Alert>
+      </section>
+    );
+  }
+
+  const student = profileState.data;
+
+  if (mode === "edit") {
+    return (
+      <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Edit Student</h2>
+            <p className="text-sm text-[#6b7280]">{student.full_name}</p>
+          </div>
+          <button className="min-h-10 rounded-md border border-[#d1d5db] px-3 py-2 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]" onClick={() => setMode("view")} type="button">Cancel</button>
+        </div>
+
+        <form className="mt-5 grid gap-4" onSubmit={handleSaveEdit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <InputField label="Student name" name="full_name" onChange={(v) => updateEditField("full_name", v)} required value={editForm.full_name} />
+            <InputField label="Phone number" name="phone" onChange={(v) => updateEditField("phone", v)} placeholder="10-digit number" required value={editForm.phone} />
+            <InputField label="Joining date" name="joining_date" onChange={(v) => updateEditField("joining_date", v)} required type="date" value={editForm.joining_date} />
+            <SelectField label="Status" name="status" onChange={(v) => updateEditField("status", v as StudentFormState["status"])} value={editForm.status}>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="completed">Completed</option>
+            </SelectField>
+            <InputField label="Total fees" name="total_fee_amount" onChange={(v) => updateEditField("total_fee_amount", v)} placeholder="0" type="number" value={editForm.total_fee_amount} />
+            <InputField label="Date of birth" name="date_of_birth" onChange={(v) => updateEditField("date_of_birth", v)} type="date" value={editForm.date_of_birth} />
+          </div>
+
+          <TextareaField label="Address" name="address" onChange={(v) => updateEditField("address", v)} value={editForm.address} />
+
+          {editState.status === "error" ? <Alert tone="danger">{editState.message}</Alert> : null}
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <button className="min-h-11 rounded-md border border-[#d1d5db] px-4 py-2 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]" onClick={() => setMode("view")} type="button">Cancel</button>
+            <button className="min-h-11 rounded-md bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-70" disabled={editState.status === "saving"} type="submit">
+              {editState.status === "saving" ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </section>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {successMessage ? <Alert tone="success">{successMessage}</Alert> : null}
+
+      <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <button className="mb-2 text-sm font-medium text-[#2563eb] hover:underline" onClick={onBack} type="button">
+              Back to Students
+            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-2xl font-semibold">{student.full_name}</h2>
+              <StatusBadge status={student.status} />
+            </div>
+            <p className="mt-1 text-sm text-[#6b7280]">{student.course_type} - Joined {formatDate(student.joining_date)}</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {student.status !== "archived" ? (
+              <>
+                <button className="min-h-10 rounded-md border border-[#d1d5db] px-3 py-2 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]" onClick={handleStartEdit} type="button">Edit</button>
+                {archiveConfirm ? (
+                  <>
+                    <button
+                      className="min-h-10 rounded-md border border-[#d64545] bg-[#d64545]/10 px-3 py-2 text-sm font-semibold text-[#d64545] transition hover:bg-[#d64545]/20 disabled:cursor-not-allowed disabled:opacity-70"
+                      disabled={archiveSaving}
+                      onClick={handleArchive}
+                      type="button"
+                    >
+                      {archiveSaving ? "Archiving..." : "Confirm Archive"}
+                    </button>
+                    {!archiveSaving ? (
+                      <button className="min-h-10 rounded-md border border-[#d1d5db] px-3 py-2 text-sm font-semibold text-[#6b7280] transition hover:bg-[#f3f4f6]" onClick={() => setArchiveConfirm(false)} type="button">Cancel</button>
+                    ) : null}
+                  </>
+                ) : (
+                  <button className="min-h-10 rounded-md border border-[#d1d5db] px-3 py-2 text-sm font-semibold text-[#6b7280] transition hover:bg-[#f3f4f6]" onClick={handleArchive} type="button">Archive</button>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-3 rounded-md border border-[#d1d5db] bg-[#f3f4f6] p-3 text-center text-sm">
+          <div>
+            <p className="text-xs text-[#6b7280]">Total Fees</p>
+            <p className="mt-0.5 font-semibold">{formatCurrency(student.total_fee_amount)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-[#6b7280]">Paid</p>
+            <p className="mt-0.5 font-semibold text-[#2f9e44]">{formatCurrency(student.paid_amount)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-[#6b7280]">Pending</p>
+            <p className={`mt-0.5 font-semibold ${student.pending_amount > 0 ? "text-[#d64545]" : "text-[#2f9e44]"}`}>
+              {formatCurrency(student.pending_amount)}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+          <h3 className="font-semibold">Personal Details</h3>
+          <dl className="mt-3 space-y-2 text-sm">
+            <DetailRow label="Phone" value={student.phone} />
+            <DetailRow label="Alternate phone" value={student.alternate_phone} />
+            <DetailRow label="Email" value={student.email} />
+            <DetailRow label="Date of birth" value={student.date_of_birth ? formatDate(student.date_of_birth) : null} />
+            <DetailRow label="Address" value={student.address} />
+          </dl>
+        </section>
+
+        <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+          <h3 className="font-semibold">Course & Permit</h3>
+          <dl className="mt-3 space-y-2 text-sm">
+            <DetailRow label="Course" value={student.course_type} />
+            <DetailRow label="Joining date" value={formatDate(student.joining_date)} />
+            <DetailRow label="Learner permit" value={student.learner_permit_number} />
+            <DetailRow label="Permit expiry" value={student.learner_permit_expiry_date ? formatDate(student.learner_permit_expiry_date) : null} />
+            <DetailRow label="License" value={student.license_number} />
+          </dl>
+        </section>
       </div>
-      <p className="mt-6 rounded-md border border-dashed border-[#d1d5db] p-6 text-center text-sm text-[#6b7280]">
-        Full student profile will be available in the next update.
-      </p>
-    </section>
+
+      {student.notes ? (
+        <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+          <h3 className="font-semibold">Notes</h3>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-[#1f2937]">{student.notes}</p>
+        </section>
+      ) : null}
+
+      <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+        <h3 className="font-semibold">
+          Training Days <span className="text-sm font-normal text-[#6b7280]">({student.training_days.length})</span>
+        </h3>
+        <div className="mt-3">
+          {student.training_days.length === 0 ? (
+            <p className="rounded-md border border-dashed border-[#d1d5db] p-4 text-center text-sm text-[#6b7280]">No training days scheduled.</p>
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-[#d1d5db] text-[#6b7280]">
+                      <th className="py-2 pr-4 font-semibold">Date</th>
+                      <th className="py-2 pr-4 font-semibold">Time</th>
+                      <th className="py-2 pr-4 font-semibold">Status</th>
+                      <th className="py-2 pr-4 font-semibold">Instructor</th>
+                      <th className="py-2 font-semibold">Vehicle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {student.training_days.map((day) => (
+                      <tr className="border-b border-[#d1d5db]" key={day.id}>
+                        <td className="py-2 pr-4">{formatDate(day.training_date)}</td>
+                        <td className="py-2 pr-4 text-[#6b7280]">{day.training_time || "-"}</td>
+                        <td className="py-2 pr-4"><StatusBadge status={day.status} /></td>
+                        <td className="py-2 pr-4 text-[#6b7280]">{day.instructor_name || "-"}</td>
+                        <td className="py-2 text-[#6b7280]">{day.vehicle_number || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="space-y-2 md:hidden">
+                {student.training_days.map((day) => (
+                  <div className="rounded-md border border-[#d1d5db] p-3" key={day.id}>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium">{formatDate(day.training_date)}</p>
+                      <StatusBadge status={day.status} />
+                    </div>
+                    <p className="mt-1 text-sm text-[#6b7280]">
+                      {day.training_time || "Time not set"}
+                      {day.instructor_name ? ` - ${day.instructor_name}` : ""}
+                      {day.vehicle_number ? ` - ${day.vehicle_number}` : ""}
+                    </p>
+                    {day.notes ? <p className="mt-1 text-sm text-[#6b7280]">{day.notes}</p> : null}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+        <h3 className="font-semibold">
+          Payment History <span className="text-sm font-normal text-[#6b7280]">({student.payments.length})</span>
+        </h3>
+        <div className="mt-3">
+          {student.payments.length === 0 ? (
+            <p className="rounded-md border border-dashed border-[#d1d5db] p-4 text-center text-sm text-[#6b7280]">No payments recorded.</p>
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-[#d1d5db] text-[#6b7280]">
+                      <th className="py-2 pr-4 font-semibold">Date</th>
+                      <th className="py-2 pr-4 font-semibold">Amount</th>
+                      <th className="py-2 pr-4 font-semibold">Method</th>
+                      <th className="py-2 pr-4 font-semibold">Receipt</th>
+                      <th className="py-2 font-semibold">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {student.payments.map((payment) => (
+                      <tr className="border-b border-[#d1d5db]" key={payment.id}>
+                        <td className="py-2 pr-4">{formatDate(payment.payment_date)}</td>
+                        <td className="py-2 pr-4 font-medium text-[#2f9e44]">{formatCurrency(payment.amount)}</td>
+                        <td className="py-2 pr-4 text-[#6b7280]">{titleCase(payment.method)}</td>
+                        <td className="py-2 pr-4 text-[#6b7280]">{payment.receipt_number || "-"}</td>
+                        <td className="py-2 text-[#6b7280]">{payment.notes || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="space-y-2 md:hidden">
+                {student.payments.map((payment) => (
+                  <div className="rounded-md border border-[#d1d5db] p-3" key={payment.id}>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-[#2f9e44]">{formatCurrency(payment.amount)}</p>
+                      <p className="text-sm text-[#6b7280]">{formatDate(payment.payment_date)}</p>
+                    </div>
+                    <p className="mt-1 text-sm text-[#6b7280]">
+                      {titleCase(payment.method)}
+                      {payment.receipt_number ? ` - Receipt: ${payment.receipt_number}` : ""}
+                    </p>
+                    {payment.notes ? <p className="mt-1 text-sm text-[#6b7280]">{payment.notes}</p> : null}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+        <h3 className="font-semibold">Activity Log</h3>
+        <div className="mt-3">
+          {student.activity_log.length === 0 ? (
+            <p className="text-sm text-[#6b7280]">No activity recorded.</p>
+          ) : (
+            <div className="space-y-2">
+              {student.activity_log.map((item) => (
+                <div className="flex flex-col gap-0.5 border-b border-[#d1d5db] pb-2 last:border-0" key={item.id}>
+                  <p className="text-sm">{item.description}</p>
+                  <p className="text-xs text-[#6b7280]">{formatTimestamp(item.created_at)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1054,6 +1527,16 @@ function StatusBadge({ status }: { status: string }) {
     <span className={`rounded-md px-2 py-1 text-xs font-semibold ${className}`}>
       {titleCase(status)}
     </span>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: ReactNode }) {
+  const isEmpty = value === null || value === undefined || value === "";
+  return (
+    <div className="flex gap-3">
+      <dt className="w-32 shrink-0 text-[#6b7280]">{label}</dt>
+      <dd className={isEmpty ? "text-[#6b7280]" : ""}>{isEmpty ? "-" : value}</dd>
+    </div>
   );
 }
 

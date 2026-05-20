@@ -10,7 +10,9 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Rushabh Pawar\\\\OneDrive\\\\Desktop\\\\AI Agent Course\\\\Driving School\\\\frontend\" -Depth 0 | Where-Object { $_.Name -match \"tailwind\" } | Select-Object -ExpandProperty FullName)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Rushabh Pawar\\\\OneDrive\\\\Desktop\\\\AI Agent Course\\\\Driving School\\\\frontend\" -Force | Where-Object { $_.Name -match \"\\\\.env\" })",
       "PowerShell(where.exe uv; $env:PATH)",
-      "PowerShell(Get-Command *)"
+      "PowerShell(Get-Command *)",
+      "Bash(uv run *)",
+      "PowerShell(uv run *)"
     ]
   }
 }

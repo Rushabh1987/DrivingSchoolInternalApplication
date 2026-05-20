@@ -87,4 +87,4 @@ Five tables: `students`, `training_days`, `payments`, `activity_log`, `app_metad
 
 ## Implementation status
 
-Parts 1–6 of `PLAN.md` are complete (scaffolding, login, database, dashboard API, student registration API + tests). Parts 7–14 are not yet started: student list UI, student profile, training days UI, payments UI, reports, responsive polish, frontend tests, deployment docs.
+Parts 1–8 of `PLAN.md` are complete (scaffolding, login, database, dashboard API, student registration API + tests, student list UI, student profile). Parts 9–14 are not yet started: training days UI, payments UI, reports, responsive polish, frontend tests, deployment docs.

@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .dashboard import get_dashboard_data
 from .database import database_path, initialize_database, verify_database
-from .students import StudentCreate, create_student, list_students
+from .students import StudentCreate, StudentUpdate, archive_student, create_student, get_student, list_students, update_student
 
 
 @asynccontextmanager
@@ -62,6 +62,21 @@ def students(
 @app.post("/students", status_code=201)
 def register_student(payload: StudentCreate) -> dict:
     return create_student(payload)
+
+
+@app.get("/students/{student_id}")
+def student_detail(student_id: int) -> dict:
+    return get_student(student_id)
+
+
+@app.put("/students/{student_id}")
+def update_student_route(student_id: int, payload: StudentUpdate) -> dict:
+    return update_student(student_id, payload)
+
+
+@app.patch("/students/{student_id}/archive")
+def archive_student_route(student_id: int) -> dict:
+    return archive_student(student_id)
 
 
 static_dir = Path(__file__).resolve().parents[1] / "static"

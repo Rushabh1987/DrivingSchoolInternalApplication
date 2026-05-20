@@ -68,20 +68,17 @@ There is no frontend, backend, database, Docker setup, or scripts folder yet. Th
 
 ## Student Fields
 
-The student record should include:
+The student record form collects:
 
-- Student name
-- Phone number
-- Alternate phone number
-- Email
+- Student name (required)
+- Phone number (required, exactly 10 digits)
+- Joining date (required)
+- Status (required)
 - Address
 - Date of birth
-- Course type
-- Joining date
-- Status
 - Total fees
-- Notes
-- Learner permit or license details if available
+
+The database also stores `course_type`, `alternate_phone`, `email`, `learner_permit_number`, `learner_permit_expiry_date`, `license_number`, and `notes` columns for future use, but these fields are not shown in the current admin UI forms.
 
 Student status options:
 

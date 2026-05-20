@@ -36,21 +36,39 @@ Registers a new student.
 Required request fields:
 
 - `full_name`
-- `phone`
-- `course_type`
+- `phone` — must be exactly 10 digits
 - `joining_date`
 
 Optional request fields:
 
-- `status`
-- `alternate_phone`
-- `email`
+- `status` (default: `active`)
 - `address`
 - `date_of_birth`
 - `total_fee_amount`
+- `course_type`
+- `alternate_phone`
+- `email`
 - `learner_permit_number`
 - `learner_permit_expiry_date`
 - `license_number`
 - `notes`
 
-Duplicate phone numbers return `409`.
+Duplicate phone numbers return `409`. Invalid phone format returns `422`.
+
+## `GET /students/{id}`
+
+Returns full student profile including training days, payment history, and activity log.
+
+Returns `404` if not found.
+
+## `PUT /students/{id}`
+
+Updates student details. Accepts the same fields as `POST /students`. Status must be `active`, `paused`, or `completed` — use the archive endpoint to archive.
+
+Returns `404` if not found. Duplicate phone returns `409`.
+
+## `PATCH /students/{id}/archive`
+
+Archives the student (sets `status` to `archived` and records `archived_at`). No request body needed.
+
+Returns `404` if not found. Returns `409` if already archived.

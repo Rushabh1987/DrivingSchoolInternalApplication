@@ -15,7 +15,6 @@ The app should let the admin register students, manage student details, update t
 - Student list, search, filters, and profile page
 - Training day tracking for each student
 - Simple payment tracking
-- Student notes
 - Basic dashboard
 - Simple reports and CSV export
 - Responsive layout for mobile and laptop

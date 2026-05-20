@@ -15,28 +15,29 @@ Stores the main student profile.
 Fields:
 
 - `id` - primary key
+- `id` - primary key
 - `full_name` - required student name
-- `phone` - required unique phone number
-- `alternate_phone` - optional second phone number
-- `email` - optional email
+- `phone` - required unique phone number, must be exactly 10 digits
+- `alternate_phone` - not shown in current UI forms
+- `email` - not shown in current UI forms
 - `address` - optional address
 - `date_of_birth` - optional date, stored as `YYYY-MM-DD`
-- `course_type` - required course name/type
+- `course_type` - optional course name/type, not shown in current UI forms
 - `joining_date` - required date, stored as `YYYY-MM-DD`
 - `status` - `active`, `paused`, `completed`, or `archived`
 - `total_fee_amount` - total course fees as a whole number
-- `learner_permit_number` - optional learner permit number
-- `learner_permit_expiry_date` - optional date, stored as `YYYY-MM-DD`
-- `license_number` - optional license number
-- `notes` - optional admin notes
+- `learner_permit_number` - not shown in current UI forms
+- `learner_permit_expiry_date` - not shown in current UI forms
+- `license_number` - not shown in current UI forms
+- `notes` - not shown in current UI forms
 - `created_at` - created timestamp
 - `updated_at` - updated timestamp
 - `archived_at` - timestamp for archived students
 
 Rules:
 
-- `phone` must be unique
-- `full_name`, `phone`, `course_type`, and `joining_date` are required
+- `phone` must be unique and exactly 10 digits
+- `full_name`, `phone`, and `joining_date` are required
 - Students should be archived instead of permanently deleted in normal app workflows
 
 ## `training_days`
