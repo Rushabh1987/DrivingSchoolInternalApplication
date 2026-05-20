@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS students (
     email TEXT NOT NULL DEFAULT '',
     address TEXT NOT NULL DEFAULT '',
     date_of_birth TEXT,
-    course_type TEXT NOT NULL CHECK (length(trim(course_type)) > 0),
+    course_type TEXT NOT NULL DEFAULT '',
     joining_date TEXT NOT NULL CHECK (length(trim(joining_date)) > 0),
     status TEXT NOT NULL DEFAULT 'active'
         CHECK (status IN ('active', 'paused', 'completed', 'archived')),
@@ -87,6 +87,60 @@ LEFT JOIN payments ON payments.student_id = students.id
 GROUP BY students.id;
 """
 
+# Removes the CHECK (length(trim(course_type)) > 0) constraint added in v1.
+# SQLite requires recreating the table to drop a constraint.
+# The view referencing students must be dropped first and recreated after.
+_MIGRATION_V2_SQL = """
+PRAGMA foreign_keys = OFF;
+BEGIN;
+
+DROP VIEW IF EXISTS student_payment_summary;
+
+CREATE TABLE students_new (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    full_name TEXT NOT NULL CHECK (length(trim(full_name)) > 0),
+    phone TEXT NOT NULL UNIQUE CHECK (length(trim(phone)) > 0),
+    alternate_phone TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '',
+    date_of_birth TEXT,
+    course_type TEXT NOT NULL DEFAULT '',
+    joining_date TEXT NOT NULL CHECK (length(trim(joining_date)) > 0),
+    status TEXT NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active', 'paused', 'completed', 'archived')),
+    total_fee_amount INTEGER NOT NULL DEFAULT 0 CHECK (total_fee_amount >= 0),
+    learner_permit_number TEXT NOT NULL DEFAULT '',
+    learner_permit_expiry_date TEXT,
+    license_number TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    archived_at TEXT
+);
+
+INSERT INTO students_new SELECT * FROM students;
+DROP TABLE students;
+ALTER TABLE students_new RENAME TO students;
+
+CREATE INDEX IF NOT EXISTS idx_students_status ON students(status);
+CREATE INDEX IF NOT EXISTS idx_students_phone ON students(phone);
+
+CREATE VIEW student_payment_summary AS
+SELECT
+    students.id AS student_id,
+    students.total_fee_amount AS total_fee_amount,
+    COALESCE(SUM(payments.amount), 0) AS paid_amount,
+    students.total_fee_amount - COALESCE(SUM(payments.amount), 0) AS pending_amount
+FROM students
+LEFT JOIN payments ON payments.student_id = students.id
+GROUP BY students.id;
+
+UPDATE app_metadata SET value = '2' WHERE key = 'schema_version';
+
+COMMIT;
+PRAGMA foreign_keys = ON;
+"""
+
 
 def database_path() -> Path:
     configured_path = os.getenv("DRIVING_SCHOOL_DB_PATH")
@@ -107,24 +161,48 @@ def connect_database() -> sqlite3.Connection:
     return connection
 
 
+def _apply_migration_v2(connection: sqlite3.Connection) -> None:
+    schema_row = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='students'"
+    ).fetchone()
+
+    needs_migration = (
+        schema_row is not None
+        and "CHECK (length(trim(course_type)) > 0)" in schema_row["sql"]
+    )
+
+    if needs_migration:
+        connection.executescript(_MIGRATION_V2_SQL)
+    else:
+        connection.execute(
+            "UPDATE app_metadata SET value = '2' WHERE key = 'schema_version'"
+        )
+        connection.commit()
+
+
 def initialize_database() -> Path:
     path = database_path()
     path.parent.mkdir(parents=True, exist_ok=True)
 
     with closing(connect_database()) as connection:
         connection.executescript(SCHEMA_SQL)
+
+        # INSERT OR IGNORE preserves the version set by migrations across restarts.
         connection.execute(
-            """
-            INSERT OR REPLACE INTO app_metadata (key, value)
-            VALUES ('schema_status', 'mvp_student_schema')
-            """
+            "INSERT OR IGNORE INTO app_metadata (key, value) VALUES ('schema_version', '1')"
         )
         connection.execute(
-            """
-            INSERT OR REPLACE INTO app_metadata (key, value)
-            VALUES ('schema_version', '1')
-            """
+            "INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('schema_status', 'mvp_student_schema')"
         )
+        connection.commit()
+
+        version_row = connection.execute(
+            "SELECT value FROM app_metadata WHERE key = 'schema_version'"
+        ).fetchone()
+        version = int(version_row["value"]) if version_row else 1
+
+        if version < 2:
+            _apply_migration_v2(connection)
 
     return path
 

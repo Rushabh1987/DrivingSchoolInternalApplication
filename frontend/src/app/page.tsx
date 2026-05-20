@@ -61,8 +61,6 @@ type TrainingItem = {
   training_time: string;
   status: string;
   instructor_name: string;
-  vehicle_number: string;
-  notes: string;
 };
 
 type TrainingDayItem = {
@@ -72,8 +70,6 @@ type TrainingDayItem = {
   training_time: string;
   status: string;
   instructor_name: string;
-  vehicle_number: string;
-  notes: string;
   created_at: string;
 };
 
@@ -126,6 +122,20 @@ type ProfileState =
   | { status: "loading" }
   | { status: "ready"; data: StudentDetail }
   | { status: "error"; message: string };
+
+type TrainingDayFormState = {
+  training_date: string;
+  training_time: string;
+  status: "planned" | "completed" | "cancelled" | "missed";
+  instructor_name: string;
+};
+
+const emptyTrainingDayForm: TrainingDayFormState = {
+  training_date: "",
+  training_time: "",
+  status: "planned",
+  instructor_name: "",
+};
 
 type DashboardState =
   | { status: "loading" }
@@ -956,6 +966,7 @@ function StudentProfileView({
   studentId: number | null;
 }) {
   const [profileState, setProfileState] = useState<ProfileState>({ status: "loading" });
+  const [refreshKey, setRefreshKey] = useState(0);
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [editForm, setEditForm] = useState<StudentFormState>(emptyStudentForm);
   const [editState, setEditState] = useState<
@@ -986,7 +997,7 @@ function StudentProfileView({
 
     void loadStudent();
     return () => { isCancelled = true; };
-  }, [studentId]);
+  }, [studentId, refreshKey]);
 
   function handleStartEdit() {
     if (profileState.status !== "ready") return;
@@ -1246,59 +1257,14 @@ function StudentProfileView({
         </section>
       ) : null}
 
-      <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
-        <h3 className="font-semibold">
-          Training Days <span className="text-sm font-normal text-[#6b7280]">({student.training_days.length})</span>
-        </h3>
-        <div className="mt-3">
-          {student.training_days.length === 0 ? (
-            <p className="rounded-md border border-dashed border-[#d1d5db] p-4 text-center text-sm text-[#6b7280]">No training days scheduled.</p>
-          ) : (
-            <>
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-[#d1d5db] text-[#6b7280]">
-                      <th className="py-2 pr-4 font-semibold">Date</th>
-                      <th className="py-2 pr-4 font-semibold">Time</th>
-                      <th className="py-2 pr-4 font-semibold">Status</th>
-                      <th className="py-2 pr-4 font-semibold">Instructor</th>
-                      <th className="py-2 font-semibold">Vehicle</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {student.training_days.map((day) => (
-                      <tr className="border-b border-[#d1d5db]" key={day.id}>
-                        <td className="py-2 pr-4">{formatDate(day.training_date)}</td>
-                        <td className="py-2 pr-4 text-[#6b7280]">{day.training_time || "-"}</td>
-                        <td className="py-2 pr-4"><StatusBadge status={day.status} /></td>
-                        <td className="py-2 pr-4 text-[#6b7280]">{day.instructor_name || "-"}</td>
-                        <td className="py-2 text-[#6b7280]">{day.vehicle_number || "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="space-y-2 md:hidden">
-                {student.training_days.map((day) => (
-                  <div className="rounded-md border border-[#d1d5db] p-3" key={day.id}>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium">{formatDate(day.training_date)}</p>
-                      <StatusBadge status={day.status} />
-                    </div>
-                    <p className="mt-1 text-sm text-[#6b7280]">
-                      {day.training_time || "Time not set"}
-                      {day.instructor_name ? ` - ${day.instructor_name}` : ""}
-                      {day.vehicle_number ? ` - ${day.vehicle_number}` : ""}
-                    </p>
-                    {day.notes ? <p className="mt-1 text-sm text-[#6b7280]">{day.notes}</p> : null}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </section>
+      <TrainingDaysSection
+        onMutated={() => {
+          setRefreshKey((k) => k + 1);
+          onStudentUpdated();
+        }}
+        studentId={student.id}
+        trainingDays={student.training_days}
+      />
 
       <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
         <h3 className="font-semibold">
@@ -1374,6 +1340,343 @@ function StudentProfileView({
   );
 }
 
+function TrainingDayForm({
+  form,
+  onCancel,
+  onChange,
+  onSubmit,
+  saveState,
+  title,
+}: {
+  form: TrainingDayFormState;
+  onCancel: () => void;
+  onChange: <K extends keyof TrainingDayFormState>(field: K, value: TrainingDayFormState[K]) => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  saveState: { status: "idle" } | { status: "saving" } | { status: "error"; message: string };
+  title: string;
+}) {
+  return (
+    <div className="rounded-md border border-[#d1d5db] bg-[#f3f4f6] p-4">
+      <p className="mb-3 text-sm font-semibold">{title}</p>
+      <form className="grid gap-3" onSubmit={onSubmit}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <InputField label="Date" name="training_date" onChange={(v) => onChange("training_date", v)} required type="date" value={form.training_date} />
+          <InputField label="Time" name="training_time" onChange={(v) => onChange("training_time", v)} placeholder="HH:MM" type="time" value={form.training_time} />
+          <SelectField label="Status" name="status" onChange={(v) => onChange("status", v as TrainingDayFormState["status"])} value={form.status}>
+            <option value="planned">Planned</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="missed">Missed</option>
+          </SelectField>
+          <InputField label="Instructor name" name="instructor_name" onChange={(v) => onChange("instructor_name", v)} value={form.instructor_name} />
+        </div>
+        {saveState.status === "error" ? <Alert tone="danger">{saveState.message}</Alert> : null}
+        <div className="flex gap-2">
+          <button
+            className="min-h-10 rounded-md bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-70"
+            disabled={saveState.status === "saving"}
+            type="submit"
+          >
+            {saveState.status === "saving" ? "Saving..." : "Save"}
+          </button>
+          <button
+            className="min-h-10 rounded-md border border-[#d1d5db] px-4 py-2 text-sm font-semibold text-[#1f2937] transition hover:bg-white"
+            onClick={onCancel}
+            type="button"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function TrainingDaysSection({
+  onMutated,
+  studentId,
+  trainingDays,
+}: {
+  onMutated: () => void;
+  studentId: number;
+  trainingDays: TrainingDayItem[];
+}) {
+  type TdAction =
+    | { type: "idle" }
+    | { type: "adding" }
+    | { type: "editing"; dayId: number }
+    | { type: "deleting"; dayId: number };
+
+  const [action, setAction] = useState<TdAction>({ type: "idle" });
+  const [form, setForm] = useState<TrainingDayFormState>(emptyTrainingDayForm);
+  const [saveState, setSaveState] = useState<
+    { status: "idle" } | { status: "saving" } | { status: "error"; message: string }
+  >({ status: "idle" });
+  const [deleteSaving, setDeleteSaving] = useState(false);
+
+  function updateField<K extends keyof TrainingDayFormState>(field: K, value: TrainingDayFormState[K]) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  function startAdd() {
+    setForm({ ...emptyTrainingDayForm, training_date: new Date().toISOString().slice(0, 10) });
+    setSaveState({ status: "idle" });
+    setAction({ type: "adding" });
+  }
+
+  function startEdit(day: TrainingDayItem) {
+    setForm({
+      training_date: day.training_date,
+      training_time: day.training_time,
+      status: day.status as TrainingDayFormState["status"],
+      instructor_name: day.instructor_name,
+    });
+    setSaveState({ status: "idle" });
+    setAction({ type: "editing", dayId: day.id });
+  }
+
+  function cancel() {
+    setAction({ type: "idle" });
+    setSaveState({ status: "idle" });
+  }
+
+  async function handleAdd(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!form.training_date) {
+      setSaveState({ status: "error", message: "Training date is required." });
+      return;
+    }
+    setSaveState({ status: "saving" });
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/students/${studentId}/training-days`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!response.ok) throw new Error("Could not add training day.");
+      setAction({ type: "idle" });
+      setSaveState({ status: "idle" });
+      onMutated();
+    } catch (error) {
+      setSaveState({ status: "error", message: error instanceof Error ? error.message : "Could not add training day." });
+    }
+  }
+
+  async function handleEdit(e: FormEvent<HTMLFormElement>, dayId: number) {
+    e.preventDefault();
+    if (!form.training_date) {
+      setSaveState({ status: "error", message: "Training date is required." });
+      return;
+    }
+    setSaveState({ status: "saving" });
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/training-days/${dayId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!response.ok) throw new Error("Could not update training day.");
+      setAction({ type: "idle" });
+      setSaveState({ status: "idle" });
+      onMutated();
+    } catch (error) {
+      setSaveState({ status: "error", message: error instanceof Error ? error.message : "Could not update training day." });
+    }
+  }
+
+  async function handleDelete(dayId: number) {
+    setDeleteSaving(true);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/training-days/${dayId}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Could not delete training day.");
+      setAction({ type: "idle" });
+      onMutated();
+    } catch {
+      setAction({ type: "idle" });
+    } finally {
+      setDeleteSaving(false);
+    }
+  }
+
+  const isAdding = action.type === "adding";
+  const editingId = action.type === "editing" ? action.dayId : null;
+  const deletingId = action.type === "deleting" ? action.dayId : null;
+
+  return (
+    <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-semibold">
+          Training Days <span className="text-sm font-normal text-[#6b7280]">({trainingDays.length})</span>
+        </h3>
+        {!isAdding && editingId === null ? (
+          <button
+            className="min-h-9 rounded-md bg-[#2563eb] px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]"
+            onClick={startAdd}
+            type="button"
+          >
+            Add Training Day
+          </button>
+        ) : null}
+      </div>
+
+      {isAdding ? (
+        <div className="mt-3">
+          <TrainingDayForm
+            form={form}
+            onCancel={cancel}
+            onChange={updateField}
+            onSubmit={handleAdd}
+            saveState={saveState}
+            title="New Training Day"
+          />
+        </div>
+      ) : null}
+
+      {editingId !== null ? (
+        <div className="mt-3">
+          <TrainingDayForm
+            form={form}
+            onCancel={cancel}
+            onChange={updateField}
+            onSubmit={(e) => handleEdit(e, editingId)}
+            saveState={saveState}
+            title="Edit Training Day"
+          />
+        </div>
+      ) : null}
+
+      <div className="mt-3">
+        {trainingDays.length === 0 && !isAdding ? (
+          <p className="rounded-md border border-dashed border-[#d1d5db] p-4 text-center text-sm text-[#6b7280]">
+            No training days scheduled.
+          </p>
+        ) : trainingDays.length > 0 ? (
+          <>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[#d1d5db] text-[#6b7280]">
+                    <th className="py-2 pr-3 font-semibold">Date</th>
+                    <th className="py-2 pr-3 font-semibold">Time</th>
+                    <th className="py-2 pr-3 font-semibold">Status</th>
+                    <th className="py-2 pr-3 font-semibold">Instructor</th>
+                    <th className="py-2 font-semibold"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trainingDays.map((day) => (
+                    <tr className="border-b border-[#d1d5db]" key={day.id}>
+                      <td className="py-2 pr-3">{formatDate(day.training_date)}</td>
+                      <td className="py-2 pr-3 text-[#6b7280]">{day.training_time || "-"}</td>
+                      <td className="py-2 pr-3"><StatusBadge status={day.status} /></td>
+                      <td className="py-2 pr-3 text-[#6b7280]">{day.instructor_name || "-"}</td>
+                      <td className="py-2">
+                        <div className="flex gap-1.5">
+                          {deletingId === day.id ? (
+                            <>
+                              <button
+                                className="rounded-md border border-[#d64545] bg-[#d64545]/10 px-2 py-1 text-xs font-semibold text-[#d64545] transition hover:bg-[#d64545]/20 disabled:cursor-not-allowed disabled:opacity-70"
+                                disabled={deleteSaving}
+                                onClick={() => handleDelete(day.id)}
+                                type="button"
+                              >
+                                {deleteSaving ? "..." : "Confirm"}
+                              </button>
+                              <button
+                                className="rounded-md border border-[#d1d5db] px-2 py-1 text-xs font-semibold text-[#6b7280] transition hover:bg-[#f3f4f6]"
+                                onClick={cancel}
+                                type="button"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                className="rounded-md border border-[#d1d5db] px-2 py-1 text-xs font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
+                                onClick={() => startEdit(day)}
+                                type="button"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="rounded-md border border-[#d1d5db] px-2 py-1 text-xs font-semibold text-[#6b7280] transition hover:bg-[#f3f4f6]"
+                                onClick={() => setAction({ type: "deleting", dayId: day.id })}
+                                type="button"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-2 md:hidden">
+              {trainingDays.map((day) => (
+                <div className="rounded-md border border-[#d1d5db] p-3" key={day.id}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{formatDate(day.training_date)}</p>
+                      <p className="mt-0.5 text-sm text-[#6b7280]">
+                        {day.training_time || "Time not set"}
+                        {day.instructor_name ? ` - ${day.instructor_name}` : ""}
+                      </p>
+                    </div>
+                    <StatusBadge status={day.status} />
+                  </div>
+                  <div className="mt-2 flex gap-1.5">
+                    {deletingId === day.id ? (
+                      <>
+                        <button
+                          className="min-h-9 flex-1 rounded-md border border-[#d64545] bg-[#d64545]/10 px-3 py-1.5 text-sm font-semibold text-[#d64545] transition hover:bg-[#d64545]/20 disabled:cursor-not-allowed disabled:opacity-70"
+                          disabled={deleteSaving}
+                          onClick={() => handleDelete(day.id)}
+                          type="button"
+                        >
+                          {deleteSaving ? "Deleting..." : "Confirm Delete"}
+                        </button>
+                        <button
+                          className="min-h-9 rounded-md border border-[#d1d5db] px-3 py-1.5 text-sm font-semibold text-[#6b7280] transition hover:bg-[#f3f4f6]"
+                          onClick={cancel}
+                          type="button"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="min-h-9 flex-1 rounded-md border border-[#d1d5db] px-3 py-1.5 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
+                          onClick={() => startEdit(day)}
+                          type="button"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="min-h-9 rounded-md border border-[#d1d5db] px-3 py-1.5 text-sm font-semibold text-[#6b7280] transition hover:bg-[#f3f4f6]"
+                          onClick={() => setAction({ type: "deleting", dayId: day.id })}
+                          type="button"
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function StatusCard({
   label,
   loading,
@@ -1436,12 +1739,10 @@ function TrainingPanel({ data }: { data: DashboardData | null }) {
                     <p className="text-sm text-[#6b7280]">
                       {item.training_time || "Time not set"}
                       {item.instructor_name ? ` - ${item.instructor_name}` : ""}
-                      {item.vehicle_number ? ` - ${item.vehicle_number}` : ""}
                     </p>
                   </div>
                   <StatusBadge status={item.status} />
                 </div>
-                {item.notes ? <p className="mt-2 text-sm text-[#6b7280]">{item.notes}</p> : null}
               </div>
             ))}
           </div>

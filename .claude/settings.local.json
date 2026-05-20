@@ -12,7 +12,8 @@
       "PowerShell(where.exe uv; $env:PATH)",
       "PowerShell(Get-Command *)",
       "Bash(uv run *)",
-      "PowerShell(uv run *)"
+      "PowerShell(uv run *)",
+      "Bash(.venv\\\\Scripts\\\\python.exe check_migration.py)"
     ]
   }
 }

@@ -99,9 +99,9 @@ Success criteria:
 Goal: allow the admin to add students into the database from the UI.
 
 - [x] Create student registration form
-- [x] Add required fields: name, phone (10 digits), joining date, and status
-- [x] Add optional fields: address, date of birth, and fees
-- [x] Validate required fields and phone format (must be exactly 10 digits)
+- [x] Add required fields: name, phone, course type, joining date, and status
+- [x] Add optional fields: email, alternate phone, address, date of birth, license details, notes, and fees
+- [x] Validate required fields
 - [x] Prevent obvious duplicate students by phone number
 - [x] Save the student to SQLite through the backend API
 - [x] Show success and error states clearly
@@ -157,13 +157,13 @@ Success criteria:
 
 Goal: let the admin update each student's training days simply.
 
-- [ ] Add training day list on student profile
-- [ ] Add training day form with date, time, status, instructor name, vehicle number, and notes
-- [ ] Support statuses: planned, completed, cancelled, and missed
-- [ ] Allow admin to edit or remove a training day
-- [ ] Show today's training days on dashboard
-- [ ] Show next training day in student list
-- [ ] Keep the workflow fast on mobile
+- [x] Add training day list on student profile
+- [x] Add training day form with date, time, status, instructor name, vehicle number, and notes
+- [x] Support statuses: planned, completed, cancelled, and missed
+- [x] Allow admin to edit or remove a training day
+- [x] Show today's training days on dashboard
+- [x] Show next training day in student list
+- [x] Keep the workflow fast on mobile
 
 Success criteria:
 
