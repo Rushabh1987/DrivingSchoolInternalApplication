@@ -415,9 +415,12 @@ export default function Home() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f3f4f6] px-4 py-8 text-[#1f2937]">
         <section className="w-full max-w-md rounded-lg border border-[#d1d5db] bg-white p-5 shadow-sm sm:p-6">
-          <div>
-            <p className="text-sm font-medium text-[#6b7280]">Driving School</p>
-            <h1 className="mt-1 text-2xl font-semibold">Admin Sign In</h1>
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Driving School Logo" className="h-12 w-auto" />
+            <div>
+              <p className="text-sm font-medium text-[#6b7280]">Driving School</p>
+              <h1 className="mt-1 text-2xl font-semibold">Admin Sign In</h1>
+            </div>
           </div>
 
           <form className="mt-6 space-y-4" onSubmit={handleLogin}>
@@ -555,10 +558,7 @@ function AppHeader({
   return (
     <header className="border-b border-[#d1d5db] bg-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-        <div>
-          <p className="text-sm font-medium text-[#6b7280]">Admin</p>
-          <h1 className="text-2xl font-semibold">Driving School</h1>
-        </div>
+        <img src="/logo.png" alt="Driving School Logo" className="h-44 w-auto" />
 
         {/* Desktop nav */}
         <div className="hidden sm:flex sm:items-center sm:gap-3">
@@ -1317,7 +1317,7 @@ function StudentProfileView({
               <h2 className="text-2xl font-semibold">{student.full_name}</h2>
               <StatusBadge status={student.status} />
             </div>
-            <p className="mt-1 text-sm text-[#6b7280]">{student.course_type} - Joined {formatDate(student.joining_date)}</p>
+            <p className="mt-1 text-sm text-[#6b7280]">Joined {formatDate(student.joining_date)}</p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -1364,36 +1364,14 @@ function StudentProfileView({
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
-          <h3 className="font-semibold">Personal Details</h3>
-          <dl className="mt-3 space-y-2 text-sm">
-            <DetailRow label="Phone" value={student.phone} />
-            <DetailRow label="Alternate phone" value={student.alternate_phone} />
-            <DetailRow label="Email" value={student.email} />
-            <DetailRow label="Date of birth" value={student.date_of_birth ? formatDate(student.date_of_birth) : null} />
-            <DetailRow label="Address" value={student.address} />
-          </dl>
-        </section>
-
-        <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
-          <h3 className="font-semibold">Course & Permit</h3>
-          <dl className="mt-3 space-y-2 text-sm">
-            <DetailRow label="Course" value={student.course_type} />
-            <DetailRow label="Joining date" value={formatDate(student.joining_date)} />
-            <DetailRow label="Learner permit" value={student.learner_permit_number} />
-            <DetailRow label="Permit expiry" value={student.learner_permit_expiry_date ? formatDate(student.learner_permit_expiry_date) : null} />
-            <DetailRow label="License" value={student.license_number} />
-          </dl>
-        </section>
-      </div>
-
-      {student.notes ? (
-        <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
-          <h3 className="font-semibold">Notes</h3>
-          <p className="mt-2 whitespace-pre-wrap text-sm text-[#1f2937]">{student.notes}</p>
-        </section>
-      ) : null}
+      <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+        <h3 className="font-semibold">Personal Details</h3>
+        <dl className="mt-3 space-y-2 text-sm">
+          <DetailRow label="Phone" value={student.phone} />
+          <DetailRow label="Date of birth" value={student.date_of_birth ? formatDate(student.date_of_birth) : null} />
+          <DetailRow label="Address" value={student.address} />
+        </dl>
+      </section>
 
       <TrainingDaysSection
         onMutated={() => {

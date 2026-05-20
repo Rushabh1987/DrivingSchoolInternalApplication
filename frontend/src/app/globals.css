@@ -25,3 +25,11 @@ select,
 textarea {
   font: inherit;
 }
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+button:not(:disabled):hover {
+  filter: brightness(0.95);
+}
