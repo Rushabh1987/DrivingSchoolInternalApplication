@@ -5,18 +5,17 @@ from typing import Literal
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from .database import connect_database, initialize_database
+from .database import connect_database, initialize_database, row_to_dict
 
 StudentStatus = Literal["active", "paused", "completed", "archived"]
 ActiveStudentStatus = Literal["active", "paused", "completed"]
 
 
-class StudentCreate(BaseModel):
+class StudentBase(BaseModel):
     full_name: str = Field(min_length=1)
     phone: str = Field(min_length=1)
     course_type: str = ""
     joining_date: str = Field(min_length=1)
-    status: StudentStatus = "active"
     alternate_phone: str = ""
     email: str = ""
     address: str = ""
@@ -62,13 +61,15 @@ class StudentCreate(BaseModel):
     def normalize_optional_text(cls, value: str | None) -> str | None:
         if value is None:
             return None
-
-        trimmed_value = value.strip()
-        return trimmed_value or None
+        return value.strip() or None
 
 
-def student_row_to_dict(row: sqlite3.Row) -> dict:
-    return dict(row)
+class StudentCreate(StudentBase):
+    status: StudentStatus = "active"
+
+
+class StudentUpdate(StudentBase):
+    status: ActiveStudentStatus = "active"
 
 
 def create_student(payload: StudentCreate) -> dict:
@@ -145,7 +146,7 @@ def create_student(payload: StudentCreate) -> dict:
         ).fetchone()
         connection.commit()
 
-    return student_row_to_dict(student)
+    return row_to_dict(student)
 
 
 def list_students(
@@ -197,7 +198,7 @@ def list_students(
     with closing(connect_database()) as connection:
         rows = connection.execute(query, params).fetchall()
 
-    return [student_row_to_dict(row) for row in rows]
+    return [row_to_dict(row) for row in rows]
 
 
 class StudentUpdate(BaseModel):
@@ -303,10 +304,10 @@ def get_student(student_id: int) -> dict:
             (student_id,),
         ).fetchall()
 
-    result = student_row_to_dict(student)
-    result["training_days"] = [student_row_to_dict(row) for row in training_days]
-    result["payments"] = [student_row_to_dict(row) for row in payments]
-    result["activity_log"] = [student_row_to_dict(row) for row in activity]
+    result = row_to_dict(student)
+    result["training_days"] = [row_to_dict(row) for row in training_days]
+    result["payments"] = [row_to_dict(row) for row in payments]
+    result["activity_log"] = [row_to_dict(row) for row in activity]
     return result
 
 

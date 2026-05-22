@@ -1,7 +1,10 @@
-#!/usr/bin/env sh
-set -eu
+﻿#!/bin/sh
+set -e
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-cd "$ROOT_DIR"
+if [ ! -f .env ]; then
+    echo "Error: .env file not found. Copy .env.example to .env and set your password first."
+    exit 1
+fi
 
-docker compose up --build
+docker compose up --build -d
+echo "App is running at http://localhost:8000"

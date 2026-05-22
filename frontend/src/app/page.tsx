@@ -670,6 +670,7 @@ function Dashboard({
     status: "loading",
   });
   const [students, setStudents] = useState<StudentListItem[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(true);
 
   useEffect(() => {
     let isCancelled = false;
@@ -700,6 +701,7 @@ function Dashboard({
     }
 
     async function loadStudents() {
+      if (!isCancelled) setStudentsLoading(true);
       try {
         const response = await fetch(`${getApiBaseUrl()}/students`, {
           cache: "no-store",
@@ -709,6 +711,8 @@ function Dashboard({
         if (!isCancelled) setStudents(data);
       } catch {
         // non-critical, dashboard still works
+      } finally {
+        if (!isCancelled) setStudentsLoading(false);
       }
     }
 
@@ -753,7 +757,7 @@ function Dashboard({
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
-        <DashboardStudentList loading={!data} onViewStudent={onViewStudent} students={students} />
+        <DashboardStudentList loading={studentsLoading} onViewStudent={onViewStudent} students={students} />
 
         <div className="flex flex-col gap-4">
           <QuickActions onAddStudent={onAddStudent} />
@@ -1860,7 +1864,7 @@ function PaymentsSection({
     }
     setSaveState({ status: "saving" });
     try {
-      const res = await fetch(`http://localhost:8000/students/${studentId}/payments`, {
+      const res = await fetch(`${getApiBaseUrl()}/students/${studentId}/payments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, amount: amountNum }),
@@ -2724,6 +2728,7 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
 function InputField({
   autoComplete,
   label,
+  min,
   name,
   onChange,
   placeholder,
@@ -2733,6 +2738,7 @@ function InputField({
 }: {
   autoComplete?: string;
   label: string;
+  min?: string;
   name: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -2750,6 +2756,7 @@ function InputField({
         autoComplete={autoComplete}
         className="mt-2 min-h-11 w-full rounded-md border border-[#d1d5db] bg-white px-3 py-2 text-base outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
         id={name}
+        min={min}
         name={name}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}

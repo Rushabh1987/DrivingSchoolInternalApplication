@@ -247,12 +247,12 @@ Success criteria:
 
 Goal: package the app for simple local use.
 
-- [ ] Add production Docker build
-- [ ] Add `.env.example`
-- [ ] Add database initialization
-- [ ] Add backup instructions
-- [ ] Add start and stop scripts
-- [ ] Document how to open the app from laptop and mobile on the same local network
+- [x] Add production Docker build
+- [x] Add `.env.example`
+- [x] Add database initialization
+- [x] Add backup instructions
+- [x] Add start and stop scripts
+- [x] Document how to open the app from laptop and mobile on the same local network
 
 Success criteria:
 

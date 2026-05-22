@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from .database import connect_database, initialize_database
+from .database import connect_database, initialize_database, row_to_dict
 
 TrainingDayStatus = Literal["planned", "completed", "cancelled", "missed"]
 
@@ -27,9 +27,6 @@ class TrainingDayCreate(BaseModel):
             raise ValueError("Training date is required.")
         return value
 
-
-def training_day_row_to_dict(row) -> dict:
-    return dict(row)
 
 
 def create_training_day(student_id: int, payload: TrainingDayCreate) -> dict:
@@ -80,7 +77,7 @@ def create_training_day(student_id: int, payload: TrainingDayCreate) -> dict:
         ).fetchone()
         connection.commit()
 
-    return training_day_row_to_dict(day)
+    return row_to_dict(day)
 
 
 def update_training_day(day_id: int, payload: TrainingDayCreate) -> dict:
@@ -130,7 +127,7 @@ def update_training_day(day_id: int, payload: TrainingDayCreate) -> dict:
         ).fetchone()
         connection.commit()
 
-    return training_day_row_to_dict(day)
+    return row_to_dict(day)
 
 
 def delete_training_day(day_id: int) -> None:

@@ -142,6 +142,10 @@ PRAGMA foreign_keys = ON;
 """
 
 
+def row_to_dict(row: sqlite3.Row) -> dict:
+    return dict(row)
+
+
 def database_path() -> Path:
     configured_path = os.getenv("DRIVING_SCHOOL_DB_PATH")
     if configured_path:

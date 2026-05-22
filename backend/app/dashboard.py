@@ -1,13 +1,8 @@
 from contextlib import closing
 from datetime import date
-from sqlite3 import Row
 from typing import Any
 
-from .database import connect_database, initialize_database
-
-
-def row_to_dict(row: Row) -> dict[str, Any]:
-    return dict(row)
+from .database import connect_database, initialize_database, row_to_dict
 
 
 def get_dashboard_data(today: date | None = None) -> dict[str, Any]:
@@ -33,7 +28,9 @@ def get_dashboard_data(today: date | None = None) -> dict[str, Any]:
             """
             SELECT COUNT(*) AS count
             FROM training_days
-            WHERE training_date = ?
+            JOIN students ON students.id = training_days.student_id
+            WHERE training_days.training_date = ?
+                AND students.status != 'archived'
             """,
             (selected_date,),
         ).fetchone()["count"]
