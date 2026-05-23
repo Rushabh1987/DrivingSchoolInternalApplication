@@ -1,10 +1,23 @@
 import pytest
+from contextlib import closing
 from fastapi.testclient import TestClient
+
+from app.database import connect_database, initialize_database
+
+
+@pytest.fixture(autouse=True)
+def reset_database():
+    initialize_database()
+    with closing(connect_database()) as connection:
+        connection.execute(
+            "TRUNCATE students, training_days, payments, activity_log RESTART IDENTITY CASCADE"
+        )
+        connection.commit()
+    yield
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("DRIVING_SCHOOL_DB_PATH", str(tmp_path / "test.db"))
+def client():
     from app.main import app
     with TestClient(app) as c:
         yield c

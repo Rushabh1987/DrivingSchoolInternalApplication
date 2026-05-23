@@ -1,13 +1,9 @@
+from contextlib import closing
+
 from fastapi.testclient import TestClient
 
-from app.database import connect_database, initialize_database
+from app.database import connect_database
 from app.main import app
-
-
-def use_temp_database(monkeypatch, tmp_path):
-    database_file = tmp_path / "driving_school_students_test.db"
-    monkeypatch.setenv("DRIVING_SCHOOL_DB_PATH", str(database_file))
-    initialize_database()
 
 
 def valid_student_payload() -> dict:
@@ -29,9 +25,7 @@ def valid_student_payload() -> dict:
     }
 
 
-def test_register_student_saves_student_and_activity(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
-
+def test_register_student_saves_student_and_activity():
     response = TestClient(app).post("/students", json=valid_student_payload())
 
     assert response.status_code == 201
@@ -42,17 +36,16 @@ def test_register_student_saves_student_and_activity(monkeypatch, tmp_path):
     assert student["paid_amount"] == 0
     assert student["pending_amount"] == 15000
 
-    with connect_database() as connection:
+    with closing(connect_database()) as connection:
         activity = connection.execute(
-            "SELECT activity_type FROM activity_log WHERE student_id = ?",
+            "SELECT activity_type FROM activity_log WHERE student_id = %s",
             (student["id"],),
         ).fetchone()
 
     assert activity["activity_type"] == "student_created"
 
 
-def test_register_student_rejects_duplicate_phone(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_register_student_rejects_duplicate_phone():
     client = TestClient(app)
 
     assert client.post("/students", json=valid_student_payload()).status_code == 201
@@ -62,8 +55,7 @@ def test_register_student_rejects_duplicate_phone(monkeypatch, tmp_path):
     assert response.json()["detail"] == "A student with this phone number already exists."
 
 
-def test_register_student_validates_required_fields(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_register_student_validates_required_fields():
     payload = valid_student_payload()
     payload["full_name"] = " "
 
@@ -72,8 +64,7 @@ def test_register_student_validates_required_fields(monkeypatch, tmp_path):
     assert response.status_code == 422
 
 
-def test_register_student_rejects_negative_fee(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_register_student_rejects_negative_fee():
     payload = valid_student_payload()
     payload["total_fee_amount"] = -1
 
@@ -82,8 +73,7 @@ def test_register_student_rejects_negative_fee(monkeypatch, tmp_path):
     assert response.status_code == 422
 
 
-def test_list_students_returns_registered_students(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_list_students_returns_registered_students():
     client = TestClient(app)
 
     client.post("/students", json=valid_student_payload())
@@ -94,9 +84,7 @@ def test_list_students_returns_registered_students(monkeypatch, tmp_path):
     assert response.json()[0]["pending_amount"] == 15000
 
 
-
-def test_list_students_excludes_archived_by_default(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_list_students_excludes_archived_by_default():
     client = TestClient(app)
 
     archived_payload = {**valid_student_payload(), "status": "archived"}
@@ -106,8 +94,7 @@ def test_list_students_excludes_archived_by_default(monkeypatch, tmp_path):
     assert response.json() == []
 
 
-def test_list_students_filter_all_excludes_archived(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_list_students_filter_all_excludes_archived():
     client = TestClient(app)
 
     archived_payload = {**valid_student_payload(), "status": "archived"}
@@ -117,8 +104,7 @@ def test_list_students_filter_all_excludes_archived(monkeypatch, tmp_path):
     assert response.json() == []
 
 
-def test_list_students_filter_by_status(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_list_students_filter_by_status():
     client = TestClient(app)
 
     client.post("/students", json=valid_student_payload())
@@ -134,8 +120,7 @@ def test_list_students_filter_by_status(monkeypatch, tmp_path):
     assert response.json()[0]["status"] == "paused"
 
 
-def test_list_students_search_by_name(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_list_students_search_by_name():
     client = TestClient(app)
 
     client.post("/students", json=valid_student_payload())
@@ -147,8 +132,7 @@ def test_list_students_search_by_name(monkeypatch, tmp_path):
     assert response.json()[0]["full_name"] == "Rushabh Pawar"
 
 
-def test_list_students_search_by_phone(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_list_students_search_by_phone():
     client = TestClient(app)
 
     client.post("/students", json=valid_student_payload())
@@ -160,8 +144,7 @@ def test_list_students_search_by_phone(monkeypatch, tmp_path):
     assert response.json()[0]["full_name"] == "Amit Shah"
 
 
-def test_list_students_search_no_results(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_list_students_search_no_results():
     client = TestClient(app)
 
     client.post("/students", json=valid_student_payload())
@@ -172,8 +155,7 @@ def test_list_students_search_no_results(monkeypatch, tmp_path):
 
 # --- Student detail, update, and archive ---
 
-def test_get_student_returns_full_profile(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_get_student_returns_full_profile():
     client = TestClient(app)
 
     created = client.post("/students", json=valid_student_payload()).json()
@@ -187,14 +169,12 @@ def test_get_student_returns_full_profile(monkeypatch, tmp_path):
     assert "activity_log" in data
 
 
-def test_get_student_not_found(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_get_student_not_found():
     response = TestClient(app).get("/students/9999")
     assert response.status_code == 404
 
 
-def test_update_student(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_update_student():
     client = TestClient(app)
 
     created = client.post("/students", json=valid_student_payload()).json()
@@ -206,14 +186,12 @@ def test_update_student(monkeypatch, tmp_path):
     assert response.json()["status"] == "completed"
 
 
-def test_update_student_not_found(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_update_student_not_found():
     response = TestClient(app).put("/students/9999", json=valid_student_payload())
     assert response.status_code == 404
 
 
-def test_archive_student(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_archive_student():
     client = TestClient(app)
 
     created = client.post("/students", json=valid_student_payload()).json()
@@ -223,8 +201,7 @@ def test_archive_student(monkeypatch, tmp_path):
     assert response.json()["status"] == "archived"
 
 
-def test_archive_already_archived_returns_conflict(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_archive_already_archived_returns_conflict():
     client = TestClient(app)
 
     created = client.post("/students", json=valid_student_payload()).json()
@@ -234,8 +211,7 @@ def test_archive_already_archived_returns_conflict(monkeypatch, tmp_path):
     assert response.status_code == 409
 
 
-def test_archived_student_hidden_from_default_list(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_archived_student_hidden_from_default_list():
     client = TestClient(app)
 
     created = client.post("/students", json=valid_student_payload()).json()
@@ -244,8 +220,7 @@ def test_archived_student_hidden_from_default_list(monkeypatch, tmp_path):
     assert client.get("/students").json() == []
 
 
-def test_archived_student_visible_with_archived_filter(monkeypatch, tmp_path):
-    use_temp_database(monkeypatch, tmp_path)
+def test_archived_student_visible_with_archived_filter():
     client = TestClient(app)
 
     created = client.post("/students", json=valid_student_payload()).json()

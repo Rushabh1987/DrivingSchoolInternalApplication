@@ -34,20 +34,21 @@ def create_training_day(student_id: int, payload: TrainingDayCreate) -> dict:
 
     with closing(connect_database()) as connection:
         student = connection.execute(
-            "SELECT id, full_name FROM students WHERE id = ?",
+            "SELECT id, full_name FROM students WHERE id = %s",
             (student_id,),
         ).fetchone()
 
         if not student:
             raise HTTPException(status_code=404, detail="Student not found.")
 
-        cursor = connection.execute(
+        day_id = int(connection.execute(
             """
             INSERT INTO training_days (
                 student_id, training_date, training_time, status,
                 instructor_name
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
             """,
             (
                 student_id,
@@ -56,13 +57,12 @@ def create_training_day(student_id: int, payload: TrainingDayCreate) -> dict:
                 payload.status,
                 payload.instructor_name,
             ),
-        )
-        day_id = int(cursor.lastrowid)
+        ).fetchone()["id"])
 
         connection.execute(
             """
             INSERT INTO activity_log (student_id, activity_type, description)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             """,
             (
                 student_id,
@@ -72,7 +72,7 @@ def create_training_day(student_id: int, payload: TrainingDayCreate) -> dict:
         )
 
         day = connection.execute(
-            "SELECT * FROM training_days WHERE id = ?",
+            "SELECT * FROM training_days WHERE id = %s",
             (day_id,),
         ).fetchone()
         connection.commit()
@@ -85,7 +85,7 @@ def update_training_day(day_id: int, payload: TrainingDayCreate) -> dict:
 
     with closing(connect_database()) as connection:
         existing = connection.execute(
-            "SELECT id, student_id, training_date FROM training_days WHERE id = ?",
+            "SELECT id, student_id, training_date FROM training_days WHERE id = %s",
             (day_id,),
         ).fetchone()
 
@@ -95,12 +95,12 @@ def update_training_day(day_id: int, payload: TrainingDayCreate) -> dict:
         connection.execute(
             """
             UPDATE training_days SET
-                training_date = ?,
-                training_time = ?,
-                status = ?,
-                instructor_name = ?,
+                training_date = %s,
+                training_time = %s,
+                status = %s,
+                instructor_name = %s,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
+            WHERE id = %s
             """,
             (
                 payload.training_date,
@@ -113,7 +113,7 @@ def update_training_day(day_id: int, payload: TrainingDayCreate) -> dict:
         connection.execute(
             """
             INSERT INTO activity_log (student_id, activity_type, description)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             """,
             (
                 existing["student_id"],
@@ -122,7 +122,7 @@ def update_training_day(day_id: int, payload: TrainingDayCreate) -> dict:
             ),
         )
         day = connection.execute(
-            "SELECT * FROM training_days WHERE id = ?",
+            "SELECT * FROM training_days WHERE id = %s",
             (day_id,),
         ).fetchone()
         connection.commit()
@@ -135,18 +135,18 @@ def delete_training_day(day_id: int) -> None:
 
     with closing(connect_database()) as connection:
         existing = connection.execute(
-            "SELECT id, student_id, training_date FROM training_days WHERE id = ?",
+            "SELECT id, student_id, training_date FROM training_days WHERE id = %s",
             (day_id,),
         ).fetchone()
 
         if not existing:
             raise HTTPException(status_code=404, detail="Training day not found.")
 
-        connection.execute("DELETE FROM training_days WHERE id = ?", (day_id,))
+        connection.execute("DELETE FROM training_days WHERE id = %s", (day_id,))
         connection.execute(
             """
             INSERT INTO activity_log (student_id, activity_type, description)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             """,
             (
                 existing["student_id"],

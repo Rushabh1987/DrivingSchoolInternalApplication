@@ -29,7 +29,7 @@ def get_dashboard_data(today: date | None = None) -> dict[str, Any]:
             SELECT COUNT(*) AS count
             FROM training_days
             JOIN students ON students.id = training_days.student_id
-            WHERE training_days.training_date = ?
+            WHERE training_days.training_date = %s
                 AND students.status != 'archived'
             """,
             (selected_date,),
@@ -57,7 +57,7 @@ def get_dashboard_data(today: date | None = None) -> dict[str, Any]:
                 created_at
             FROM students
             WHERE status != 'archived'
-            ORDER BY datetime(created_at) DESC, id DESC
+            ORDER BY created_at DESC, id DESC
             LIMIT 5
             """
         ).fetchall()
@@ -75,7 +75,7 @@ def get_dashboard_data(today: date | None = None) -> dict[str, Any]:
                 training_days.notes
             FROM training_days
             JOIN students ON students.id = training_days.student_id
-            WHERE training_days.training_date = ?
+            WHERE training_days.training_date = %s
                 AND students.status != 'archived'
             ORDER BY
                 CASE WHEN training_days.training_time = '' THEN 1 ELSE 0 END,

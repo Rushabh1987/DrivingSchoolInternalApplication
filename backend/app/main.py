@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .dashboard import get_dashboard_data
-from .database import database_path, initialize_database, verify_database
+from .database import initialize_database, verify_database
 from .payments import PaymentCreate, create_payment
 from .reports import (
     export_payments_csv,
@@ -52,7 +52,6 @@ def health_check() -> dict[str, str]:
         "status": "ok",
         "service": "driving-school-backend",
         "database": "ok",
-        "database_path": str(database_path()),
     }
 
 

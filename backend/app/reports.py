@@ -4,7 +4,7 @@ import io
 
 from fastapi.responses import StreamingResponse
 
-from .database import connect_database, initialize_database
+from .database import connect_database, initialize_database, row_to_dict
 
 
 def get_students_report(status: str | None = None) -> dict:
@@ -14,7 +14,7 @@ def get_students_report(status: str | None = None) -> dict:
     params: list = []
 
     if status and status != "all":
-        conditions.append("students.status = ?")
+        conditions.append("students.status = %s")
         params.append(status)
 
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
@@ -43,7 +43,7 @@ def get_students_report(status: str | None = None) -> dict:
         ).fetchall()
 
     return {
-        "students": [dict(row) for row in rows],
+        "students": [row_to_dict(row) for row in rows],
         "counts": {row["status"]: row["count"] for row in count_rows},
         "total": len(rows),
     }
@@ -56,10 +56,10 @@ def get_payments_report(from_date: str | None = None, to_date: str | None = None
     params: list = []
 
     if from_date:
-        conditions.append("payments.payment_date >= ?")
+        conditions.append("payments.payment_date >= %s")
         params.append(from_date)
     if to_date:
-        conditions.append("payments.payment_date <= ?")
+        conditions.append("payments.payment_date <= %s")
         params.append(to_date)
 
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
@@ -83,7 +83,7 @@ def get_payments_report(from_date: str | None = None, to_date: str | None = None
     with closing(connect_database()) as connection:
         rows = connection.execute(query, params).fetchall()
 
-    payments = [dict(row) for row in rows]
+    payments = [row_to_dict(row) for row in rows]
     return {
         "payments": payments,
         "total_amount": sum(p["amount"] for p in payments),
@@ -115,7 +115,7 @@ def get_pending_fees_report() -> dict:
     with closing(connect_database()) as connection:
         rows = connection.execute(query).fetchall()
 
-    students = [dict(row) for row in rows]
+    students = [row_to_dict(row) for row in rows]
     return {
         "students": students,
         "total_pending": sum(s["pending_amount"] for s in students),
@@ -130,10 +130,10 @@ def get_training_days_report(from_date: str | None = None, to_date: str | None =
     params: list = []
 
     if from_date:
-        conditions.append("training_days.training_date >= ?")
+        conditions.append("training_days.training_date >= %s")
         params.append(from_date)
     if to_date:
-        conditions.append("training_days.training_date <= ?")
+        conditions.append("training_days.training_date <= %s")
         params.append(to_date)
 
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
@@ -164,7 +164,7 @@ def get_training_days_report(from_date: str | None = None, to_date: str | None =
         rows = connection.execute(query, params).fetchall()
         count_rows = connection.execute(count_query, params).fetchall()
 
-    days = [dict(row) for row in rows]
+    days = [row_to_dict(row) for row in rows]
     return {
         "training_days": days,
         "counts": {row["status"]: row["count"] for row in count_rows},
@@ -179,7 +179,7 @@ def export_students_csv(status: str | None = None) -> StreamingResponse:
     params: list = []
 
     if status and status != "all":
-        conditions.append("students.status = ?")
+        conditions.append("students.status = %s")
         params.append(status)
 
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
@@ -233,10 +233,10 @@ def export_payments_csv(from_date: str | None = None, to_date: str | None = None
     params: list = []
 
     if from_date:
-        conditions.append("payments.payment_date >= ?")
+        conditions.append("payments.payment_date >= %s")
         params.append(from_date)
     if to_date:
-        conditions.append("payments.payment_date <= ?")
+        conditions.append("payments.payment_date <= %s")
         params.append(to_date)
 
     where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""

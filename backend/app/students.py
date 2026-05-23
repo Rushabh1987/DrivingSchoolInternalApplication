@@ -1,5 +1,5 @@
 from contextlib import closing
-import sqlite3
+import psycopg2
 from typing import Literal
 
 from fastapi import HTTPException
@@ -77,7 +77,7 @@ def create_student(payload: StudentCreate) -> dict:
 
     with closing(connect_database()) as connection:
         try:
-            cursor = connection.execute(
+            row = connection.execute(
                 """
                 INSERT INTO students (
                     full_name,
@@ -95,7 +95,8 @@ def create_student(payload: StudentCreate) -> dict:
                     license_number,
                     notes
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
                 """,
                 (
                     payload.full_name,
@@ -113,9 +114,9 @@ def create_student(payload: StudentCreate) -> dict:
                     payload.license_number,
                     payload.notes,
                 ),
-            )
-        except sqlite3.IntegrityError as error:
-            if "students.phone" in str(error) or "UNIQUE" in str(error):
+            ).fetchone()
+        except psycopg2.IntegrityError as error:
+            if getattr(error, "pgcode", None) == "23505":
                 raise HTTPException(
                     status_code=409,
                     detail="A student with this phone number already exists.",
@@ -123,11 +124,11 @@ def create_student(payload: StudentCreate) -> dict:
 
             raise HTTPException(status_code=400, detail="Student data is invalid.") from error
 
-        student_id = int(cursor.lastrowid)
+        student_id = int(row["id"])
         connection.execute(
             """
             INSERT INTO activity_log (student_id, activity_type, description)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             """,
             (student_id, "student_created", f"Student registered: {payload.full_name}"),
         )
@@ -140,7 +141,7 @@ def create_student(payload: StudentCreate) -> dict:
             FROM students
             JOIN student_payment_summary
                 ON student_payment_summary.student_id = students.id
-            WHERE students.id = ?
+            WHERE students.id = %s
             """,
             (student_id,),
         ).fetchone()
@@ -159,14 +160,14 @@ def list_students(
     params: list[str] = []
 
     if status and status != "all":
-        conditions.append("students.status = ?")
+        conditions.append("students.status = %s")
         params.append(status)
     else:
         conditions.append("students.status != 'archived'")
 
     if search:
         term = f"%{search.strip().lower()}%"
-        conditions.append("(LOWER(students.full_name) LIKE ? OR students.phone LIKE ?)")
+        conditions.append("(LOWER(students.full_name) LIKE %s OR students.phone LIKE %s)")
         params.extend([term, term])
 
     where_clause = "WHERE " + " AND ".join(conditions)
@@ -192,7 +193,7 @@ def list_students(
         JOIN student_payment_summary
             ON student_payment_summary.student_id = students.id
         {where_clause}
-        ORDER BY datetime(students.created_at) DESC, students.id DESC
+        ORDER BY students.created_at DESC, students.id DESC
     """
 
     with closing(connect_database()) as connection:
@@ -268,7 +269,7 @@ def get_student(student_id: int) -> dict:
             FROM students
             JOIN student_payment_summary
                 ON student_payment_summary.student_id = students.id
-            WHERE students.id = ?
+            WHERE students.id = %s
             """,
             (student_id,),
         ).fetchone()
@@ -279,7 +280,7 @@ def get_student(student_id: int) -> dict:
         training_days = connection.execute(
             """
             SELECT * FROM training_days
-            WHERE student_id = ?
+            WHERE student_id = %s
             ORDER BY training_date DESC, training_time DESC
             """,
             (student_id,),
@@ -288,7 +289,7 @@ def get_student(student_id: int) -> dict:
         payments = connection.execute(
             """
             SELECT * FROM payments
-            WHERE student_id = ?
+            WHERE student_id = %s
             ORDER BY payment_date DESC, created_at DESC
             """,
             (student_id,),
@@ -297,7 +298,7 @@ def get_student(student_id: int) -> dict:
         activity = connection.execute(
             """
             SELECT * FROM activity_log
-            WHERE student_id = ?
+            WHERE student_id = %s
             ORDER BY created_at DESC
             LIMIT 20
             """,
@@ -316,7 +317,7 @@ def update_student(student_id: int, payload: StudentUpdate) -> dict:
 
     with closing(connect_database()) as connection:
         existing = connection.execute(
-            "SELECT id, full_name FROM students WHERE id = ?",
+            "SELECT id, full_name FROM students WHERE id = %s",
             (student_id,),
         ).fetchone()
 
@@ -327,22 +328,22 @@ def update_student(student_id: int, payload: StudentUpdate) -> dict:
             connection.execute(
                 """
                 UPDATE students SET
-                    full_name = ?,
-                    phone = ?,
-                    alternate_phone = ?,
-                    email = ?,
-                    address = ?,
-                    date_of_birth = ?,
-                    course_type = ?,
-                    joining_date = ?,
-                    status = ?,
-                    total_fee_amount = ?,
-                    learner_permit_number = ?,
-                    learner_permit_expiry_date = ?,
-                    license_number = ?,
-                    notes = ?,
+                    full_name = %s,
+                    phone = %s,
+                    alternate_phone = %s,
+                    email = %s,
+                    address = %s,
+                    date_of_birth = %s,
+                    course_type = %s,
+                    joining_date = %s,
+                    status = %s,
+                    total_fee_amount = %s,
+                    learner_permit_number = %s,
+                    learner_permit_expiry_date = %s,
+                    license_number = %s,
+                    notes = %s,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
+                WHERE id = %s
                 """,
                 (
                     payload.full_name,
@@ -362,8 +363,8 @@ def update_student(student_id: int, payload: StudentUpdate) -> dict:
                     student_id,
                 ),
             )
-        except sqlite3.IntegrityError as error:
-            if "students.phone" in str(error) or "UNIQUE" in str(error):
+        except psycopg2.IntegrityError as error:
+            if getattr(error, "pgcode", None) == "23505":
                 raise HTTPException(
                     status_code=409,
                     detail="A student with this phone number already exists.",
@@ -373,7 +374,7 @@ def update_student(student_id: int, payload: StudentUpdate) -> dict:
         connection.execute(
             """
             INSERT INTO activity_log (student_id, activity_type, description)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             """,
             (student_id, "student_updated", f"Student details updated: {payload.full_name}"),
         )
@@ -387,7 +388,7 @@ def archive_student(student_id: int) -> dict:
 
     with closing(connect_database()) as connection:
         existing = connection.execute(
-            "SELECT id, full_name, status FROM students WHERE id = ?",
+            "SELECT id, full_name, status FROM students WHERE id = %s",
             (student_id,),
         ).fetchone()
 
@@ -401,14 +402,14 @@ def archive_student(student_id: int) -> dict:
             """
             UPDATE students
             SET status = 'archived', archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
+            WHERE id = %s
             """,
             (student_id,),
         )
         connection.execute(
             """
             INSERT INTO activity_log (student_id, activity_type, description)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             """,
             (student_id, "student_archived", f"Student archived: {existing['full_name']}"),
         )

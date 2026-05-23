@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from .database import connect_database, initialize_database
+from .database import connect_database, initialize_database, row_to_dict
 
 PaymentMethod = Literal["cash", "upi", "bank_transfer", "card", "cheque", "other"]
 
@@ -34,20 +34,21 @@ def create_payment(student_id: int, payload: PaymentCreate) -> dict:
 
     with closing(connect_database()) as connection:
         student = connection.execute(
-            "SELECT id FROM students WHERE id = ?",
+            "SELECT id FROM students WHERE id = %s",
             (student_id,),
         ).fetchone()
 
         if not student:
             raise HTTPException(status_code=404, detail="Student not found.")
 
-        cursor = connection.execute(
+        payment_id = int(connection.execute(
             """
             INSERT INTO payments (
                 student_id, payment_date, amount, method,
                 receipt_number, notes
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
             """,
             (
                 student_id,
@@ -57,13 +58,12 @@ def create_payment(student_id: int, payload: PaymentCreate) -> dict:
                 payload.receipt_number,
                 payload.notes,
             ),
-        )
-        payment_id = int(cursor.lastrowid)
+        ).fetchone()["id"])
 
         connection.execute(
             """
             INSERT INTO activity_log (student_id, activity_type, description)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             """,
             (
                 student_id,
@@ -73,9 +73,9 @@ def create_payment(student_id: int, payload: PaymentCreate) -> dict:
         )
 
         payment = connection.execute(
-            "SELECT * FROM payments WHERE id = ?",
+            "SELECT * FROM payments WHERE id = %s",
             (payment_id,),
         ).fetchone()
         connection.commit()
 
-    return dict(payment)
+    return row_to_dict(payment)

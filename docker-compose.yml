@@ -9,6 +9,4 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DRIVING_SCHOOL_DB_PATH: /app/backend/data/driving_school.db
-    volumes:
-      - ./backend/data:/app/backend/data
+      DATABASE_URL: ${DATABASE_URL}
