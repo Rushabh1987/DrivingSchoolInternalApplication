@@ -147,6 +147,72 @@ def report_training_days(
     return get_training_days_report(from_date=from_date, to_date=to_date)
 
 
+@app.post("/admin/import-student")
+def import_student_data(payload: dict) -> dict:
+    from contextlib import closing
+    import psycopg2
+    import psycopg2.extras
+    from .database import connect_database
+
+    with closing(connect_database()) as connection:
+        row = connection.execute(
+            """
+            INSERT INTO students (
+                full_name, phone, alternate_phone, email, address,
+                date_of_birth, course_type, joining_date, status,
+                total_fee_amount, learner_permit_number, learner_permit_expiry_date,
+                license_number, notes
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (phone) DO NOTHING
+            RETURNING id
+            """,
+            (
+                payload.get("full_name"), payload.get("phone"),
+                payload.get("alternate_phone", ""), payload.get("email", ""),
+                payload.get("address", ""), payload.get("date_of_birth"),
+                payload.get("course_type", ""), payload.get("joining_date"),
+                payload.get("status", "active"), payload.get("total_fee_amount", 0),
+                payload.get("learner_permit_number", ""), payload.get("learner_permit_expiry_date"),
+                payload.get("license_number", ""), payload.get("notes", ""),
+            ),
+        ).fetchone()
+
+        if not row:
+            return {"status": "skipped", "reason": "phone already exists"}
+
+        new_id = row["id"]
+
+        for day in payload.get("training_days", []):
+            connection.execute(
+                """
+                INSERT INTO training_days (student_id, training_date, training_time, status, instructor_name, vehicle_number, notes)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (new_id, day["training_date"], day.get("training_time", ""),
+                 day.get("status", "planned"), day.get("instructor_name", ""),
+                 day.get("vehicle_number", ""), day.get("notes", "")),
+            )
+
+        for payment in payload.get("payments", []):
+            connection.execute(
+                """
+                INSERT INTO payments (student_id, payment_date, amount, method, receipt_number, notes)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (new_id, payment["payment_date"], payment["amount"],
+                 payment.get("method", "cash"), payment.get("receipt_number", ""),
+                 payment.get("notes", "")),
+            )
+
+        connection.execute(
+            "INSERT INTO activity_log (student_id, activity_type, description) VALUES (%s, %s, %s)",
+            (new_id, "student_created", f"Student imported: {payload.get('full_name')}"),
+        )
+        connection.commit()
+
+    return {"status": "imported", "new_id": new_id}
+
+
 static_dir = Path(__file__).resolve().parents[1] / "static"
 
 if static_dir.exists():
