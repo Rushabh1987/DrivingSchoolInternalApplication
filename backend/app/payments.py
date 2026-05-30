@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from .database import connect_database, initialize_database, row_to_dict
+from .database import connect_database, row_to_dict
 
 PaymentMethod = Literal["cash", "upi", "bank_transfer", "card", "cheque", "other"]
 
@@ -30,8 +30,6 @@ class PaymentCreate(BaseModel):
 
 
 def create_payment(student_id: int, payload: PaymentCreate) -> dict:
-    initialize_database()
-
     with closing(connect_database()) as connection:
         student = connection.execute(
             "SELECT id FROM students WHERE id = %s",

@@ -2,11 +2,10 @@ from contextlib import closing
 from datetime import date
 from typing import Any
 
-from .database import connect_database, initialize_database, row_to_dict
+from .database import connect_database, row_to_dict
 
 
 def get_dashboard_data(today: date | None = None) -> dict[str, Any]:
-    initialize_database()
     selected_date = (today or date.today()).isoformat()
 
     with closing(connect_database()) as connection:

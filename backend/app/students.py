@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from .database import connect_database, initialize_database, row_to_dict
+from .database import connect_database, row_to_dict
 
 StudentStatus = Literal["active", "paused", "completed", "archived"]
 ActiveStudentStatus = Literal["active", "paused", "completed"]
@@ -73,8 +73,6 @@ class StudentUpdate(StudentBase):
 
 
 def create_student(payload: StudentCreate) -> dict:
-    initialize_database()
-
     with closing(connect_database()) as connection:
         try:
             row = connection.execute(
@@ -154,8 +152,6 @@ def list_students(
     search: str | None = None,
     status: str | None = None,
 ) -> list[dict]:
-    initialize_database()
-
     conditions: list[str] = []
     params: list[str] = []
 
@@ -257,8 +253,6 @@ class StudentUpdate(BaseModel):
 
 
 def get_student(student_id: int) -> dict:
-    initialize_database()
-
     with closing(connect_database()) as connection:
         student = connection.execute(
             """
@@ -313,8 +307,6 @@ def get_student(student_id: int) -> dict:
 
 
 def update_student(student_id: int, payload: StudentUpdate) -> dict:
-    initialize_database()
-
     with closing(connect_database()) as connection:
         existing = connection.execute(
             "SELECT id, full_name FROM students WHERE id = %s",
@@ -384,8 +376,6 @@ def update_student(student_id: int, payload: StudentUpdate) -> dict:
 
 
 def archive_student(student_id: int) -> dict:
-    initialize_database()
-
     with closing(connect_database()) as connection:
         existing = connection.execute(
             "SELECT id, full_name, status FROM students WHERE id = %s",

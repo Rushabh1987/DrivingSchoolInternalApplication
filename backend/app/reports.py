@@ -4,12 +4,10 @@ import io
 
 from fastapi.responses import StreamingResponse
 
-from .database import connect_database, initialize_database, row_to_dict
+from .database import connect_database, row_to_dict
 
 
 def get_students_report(status: str | None = None) -> dict:
-    initialize_database()
-
     conditions: list[str] = []
     params: list = []
 
@@ -50,8 +48,6 @@ def get_students_report(status: str | None = None) -> dict:
 
 
 def get_payments_report(from_date: str | None = None, to_date: str | None = None) -> dict:
-    initialize_database()
-
     conditions: list[str] = []
     params: list = []
 
@@ -92,8 +88,6 @@ def get_payments_report(from_date: str | None = None, to_date: str | None = None
 
 
 def get_pending_fees_report() -> dict:
-    initialize_database()
-
     query = """
         SELECT
             students.id,
@@ -124,8 +118,6 @@ def get_pending_fees_report() -> dict:
 
 
 def get_training_days_report(from_date: str | None = None, to_date: str | None = None) -> dict:
-    initialize_database()
-
     conditions: list[str] = []
     params: list = []
 
@@ -173,8 +165,6 @@ def get_training_days_report(from_date: str | None = None, to_date: str | None =
 
 
 def export_students_csv(status: str | None = None) -> StreamingResponse:
-    initialize_database()
-
     conditions: list[str] = []
     params: list = []
 
@@ -227,8 +217,6 @@ def export_students_csv(status: str | None = None) -> StreamingResponse:
 
 
 def export_payments_csv(from_date: str | None = None, to_date: str | None = None) -> StreamingResponse:
-    initialize_database()
-
     conditions: list[str] = []
     params: list = []
 
