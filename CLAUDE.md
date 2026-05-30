@@ -8,9 +8,9 @@ Internal admin-only driving school management app. One admin user, no public-fac
 
 ## Stack
 
-- **Frontend**: Next.js 16 + TypeScript + Tailwind CSS v4, static export mode
+- **Frontend**: Next.js 16 + React 19 + TypeScript + Tailwind CSS v4, static export mode
 - **Backend**: Python FastAPI served via uvicorn, also serves the built Next.js site at `/`
-- **Database**: SQLite, auto-initialized on startup
+- **Database**: PostgreSQL (Supabase), auto-initialized on startup via `DATABASE_URL` env var
 - **Package manager**: `uv` for Python, `npm` for frontend
 - **Container**: Docker (multi-stage build)
 
@@ -48,11 +48,14 @@ docker compose up --build
 
 ### Backend (`backend/app/`)
 - `main.py` — FastAPI app, lifespan handler calls `initialize_database()`, mounts built frontend at `/` if `static/` exists
-- `database.py` — SQLite schema, `connect_database()`, `initialize_database()`. Database path controlled by `DRIVING_SCHOOL_DB_PATH` env var; defaults to `backend/data/driving_school.db`
+- `database.py` — PostgreSQL schema, `connect_database()`, `initialize_database()`. Connection via `DATABASE_URL` env var (required). Thin `_PGConnection` wrapper gives psycopg2 a sqlite3-like interface.
 - `students.py` — student CRUD endpoints and Pydantic models
 - `dashboard.py` — dashboard aggregation queries
+- `payments.py` — payment creation endpoint and Pydantic models
+- `training_days.py` — training day CRUD endpoints and Pydantic models
+- `reports.py` — report queries and CSV export endpoints
 
-All DB access uses `contextlib.closing` with raw sqlite3. Foreign keys enabled via `PRAGMA`. Fees are stored as integers (paise/cents).
+All DB access uses `contextlib.closing` with psycopg2 (`RealDictCursor`). Fees are stored as integers (paise/cents).
 
 ### Frontend (`frontend/`)
 Next.js static export (`output: export` in next.config). Built files go to `out/`, which gets copied to `backend/static/` in the Docker build so FastAPI can serve them.
@@ -60,7 +63,7 @@ Next.js static export (`output: export` in next.config). Built files go to `out/
 Login is client-side only: hardcoded credentials (`admin`/`password`), session stored in sessionStorage (expires on tab close), 12-hour TTL enforced in JS.
 
 ### Database schema
-Five tables: `students`, `training_days`, `payments`, `activity_log`, `app_metadata`. One view: `student_payment_summary` (calculates paid/pending from payments rows). Cascade deletes on student removal. Student phone is UNIQUE. All enum columns use SQLite CHECK constraints.
+Five tables: `students`, `training_days`, `payments`, `activity_log`, `app_metadata`. One view: `student_payment_summary` (calculates paid/pending from payments rows). Cascade deletes on student removal. Student phone is UNIQUE. All enum columns use PostgreSQL CHECK constraints. Timestamps use `TIMESTAMPTZ`.
 
 ## Coding rules (from AGENTS.md)
 
@@ -87,4 +90,6 @@ Five tables: `students`, `training_days`, `payments`, `activity_log`, `app_metad
 
 ## Implementation status
 
-Parts 1–10 of `PLAN.md` are complete (scaffolding, login, database, dashboard API, student registration API + tests, student list UI, student profile, training days UI, payments UI). Parts 11–14 are not yet started: reports, responsive polish, frontend tests, deployment docs.
+Parts 1–12 and 14 of `PLAN.md` are complete: scaffolding, login, database, dashboard API, student registration API + tests, student list UI, student profile, training days UI, payments UI, reports (with CSV export), responsive UI polish, and deployment docs.
+
+Part 13 (testing) is partially complete: backend tests and build verification are done. Frontend unit tests and end-to-end tests are not yet written.
