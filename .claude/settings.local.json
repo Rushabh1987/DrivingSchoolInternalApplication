@@ -19,7 +19,8 @@
       "PowerShell(Get-Content *)",
       "PowerShell(python -m py_compile \"C:\\\\Users\\\\Rushabh Pawar\\\\OneDrive\\\\Desktop\\\\AI Agent Course\\\\Driving School\\\\backend\\\\app\\\\reports.py\" 2>&1; if \\($?\\) { \"reports.py syntax ok\" } else { \"syntax error\" })",
       "PowerShell(python --version; python -m pytest --version 2>$null)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "PowerShell(npm run *)"
     ]
   }
 }
