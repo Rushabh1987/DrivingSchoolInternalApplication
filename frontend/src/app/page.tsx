@@ -212,6 +212,8 @@ const emptyPaymentForm: PaymentFormState = {
   notes: "",
 };
 
+type DashboardFilter = "total" | "active" | "training" | "pending";
+
 type DashboardState =
   | { status: "loading" }
   | { status: "ready"; data: DashboardData }
@@ -671,6 +673,11 @@ function Dashboard({
   });
   const [students, setStudents] = useState<StudentListItem[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<DashboardFilter | null>(null);
+
+  function handleFilterClick(filter: DashboardFilter) {
+    setActiveFilter((current) => (current === filter ? null : filter));
+  }
 
   useEffect(() => {
     let isCancelled = false;
@@ -734,27 +741,49 @@ function Dashboard({
       ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatusCard label="Total students" loading={!data} value={data?.counts.totalStudents} />
         <StatusCard
+          isActive={activeFilter === "total"}
+          label="Total students"
+          loading={!data}
+          onClick={() => handleFilterClick("total")}
+          value={data?.counts.totalStudents}
+        />
+        <StatusCard
+          isActive={activeFilter === "active"}
           label="Active students"
           loading={!data}
+          onClick={() => handleFilterClick("active")}
           tone="success"
           value={data?.counts.activeStudents}
         />
         <StatusCard
+          isActive={activeFilter === "training"}
           label="Today's training"
           loading={!data}
+          onClick={() => handleFilterClick("training")}
           tone="primary"
           value={data?.counts.todaysTraining}
         />
         <StatusCard
+          isActive={activeFilter === "pending"}
           label="Pending fees"
           loading={!data}
+          onClick={() => handleFilterClick("pending")}
           subtext={data ? formatCurrency(data.counts.pendingPaymentAmount) : undefined}
           tone="danger"
           value={data?.counts.pendingPayments}
         />
       </section>
+
+      {activeFilter !== null && !studentsLoading && data ? (
+        <DashboardFilterPanel
+          activeFilter={activeFilter}
+          onDismiss={() => setActiveFilter(null)}
+          onViewStudent={onViewStudent}
+          students={students}
+          todaysTraining={data.todaysTraining}
+        />
+      ) : null}
 
       <section className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
         <DashboardStudentList loading={studentsLoading} onViewStudent={onViewStudent} students={students} />
@@ -765,6 +794,132 @@ function Dashboard({
         </div>
       </section>
     </>
+  );
+}
+
+function DashboardFilterPanel({
+  activeFilter,
+  onDismiss,
+  onViewStudent,
+  students,
+  todaysTraining,
+}: {
+  activeFilter: DashboardFilter;
+  onDismiss: () => void;
+  onViewStudent: (id: number) => void;
+  students: StudentListItem[];
+  todaysTraining: TrainingItem[];
+}) {
+  const filteredStudents =
+    activeFilter === "total"
+      ? students
+      : activeFilter === "active"
+        ? students.filter((s) => s.status === "active")
+        : activeFilter === "pending"
+          ? students.filter((s) => s.pending_amount > 0)
+          : [];
+
+  const heading =
+    activeFilter === "total"
+      ? "All Students"
+      : activeFilter === "active"
+        ? "Active Students"
+        : activeFilter === "training"
+          ? "Today's Training"
+          : "Pending Fees";
+
+  const count =
+    activeFilter === "training" ? todaysTraining.length : filteredStudents.length;
+
+  return (
+    <section className="rounded-lg border border-[#2563eb] bg-white p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">
+          {heading}{" "}
+          <span className="text-sm font-normal text-[#6b7280]">({count})</span>
+        </h2>
+        <button
+          className="rounded-md border border-[#d1d5db] px-3 py-1.5 text-sm font-medium text-[#6b7280] transition hover:bg-[#f3f4f6]"
+          onClick={onDismiss}
+          type="button"
+        >
+          Dismiss
+        </button>
+      </div>
+
+      <div className="mt-4">
+        {activeFilter === "training" ? (
+          todaysTraining.length === 0 ? (
+            <p className="text-sm text-[#6b7280]">No training sessions scheduled for today.</p>
+          ) : (
+            <>
+              {todaysTraining.length === 8 ? (
+                <p className="mb-3 text-xs text-[#6b7280]">
+                  Showing up to 8 sessions — check Reports for the full list.
+                </p>
+              ) : null}
+              <div className="space-y-2">
+                {todaysTraining.map((item) => (
+                  <div
+                    className="flex items-center justify-between gap-3 rounded-md border border-[#d1d5db] p-3"
+                    key={item.id}
+                  >
+                    <div>
+                      <p className="font-semibold">{item.student_name}</p>
+                      <p className="text-sm text-[#6b7280]">
+                        {item.training_time || "Time not set"}
+                        {item.instructor_name ? ` — ${item.instructor_name}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <StatusBadge status={item.status} />
+                      <button
+                        className="rounded-md border border-[#d1d5db] px-3 py-1 text-xs font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
+                        onClick={() => onViewStudent(item.student_id)}
+                        type="button"
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )
+        ) : filteredStudents.length === 0 ? (
+          <p className="text-sm text-[#6b7280]">No students found.</p>
+        ) : (
+          <div className="max-h-[400px] overflow-y-auto space-y-2 pr-1">
+            {filteredStudents.map((student) => (
+              <div
+                className="flex items-center justify-between gap-3 rounded-md border border-[#d1d5db] p-3"
+                key={student.id}
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{student.full_name}</p>
+                  <p className="text-sm text-[#6b7280]">{student.phone}</p>
+                  {student.pending_amount > 0 ? (
+                    <p className="mt-1 text-sm text-[#d64545]">
+                      Pending {formatCurrency(student.pending_amount)}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <StatusBadge status={student.status} />
+                  <button
+                    className="rounded-md border border-[#d1d5db] px-3 py-1 text-xs font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
+                    onClick={() => onViewStudent(student.id)}
+                    type="button"
+                  >
+                    View
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -2557,14 +2712,18 @@ function TrainingDaysReport() {
 }
 
 function StatusCard({
+  isActive = false,
   label,
   loading,
+  onClick,
   subtext,
   tone = "default",
   value,
 }: {
+  isActive?: boolean;
   label: string;
   loading: boolean;
+  onClick?: () => void;
   subtext?: string;
   tone?: "default" | "success" | "primary" | "danger";
   value?: number;
@@ -2579,7 +2738,14 @@ function StatusCard({
           : "";
 
   return (
-    <div className="rounded-lg border border-[#d1d5db] bg-white p-4">
+    <div
+      className={`rounded-lg border bg-white p-4 transition ${
+        onClick ? "cursor-pointer hover:bg-[#f9fafb]" : ""
+      } ${isActive ? "border-[#2563eb] ring-2 ring-[#2563eb]/20" : "border-[#d1d5db]"}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <p className="text-sm text-[#6b7280]">{label}</p>
       <p className={`mt-2 text-3xl font-semibold ${valueClassName}`}>
         {loading ? "-" : value}
