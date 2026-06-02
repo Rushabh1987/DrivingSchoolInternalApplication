@@ -775,6 +775,15 @@ function Dashboard({
         />
       </section>
 
+      <section className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
+        <DashboardStudentList loading={studentsLoading} onViewStudent={onViewStudent} students={students} />
+
+        <div className="flex flex-col gap-4">
+          <QuickActions onAddStudent={onAddStudent} />
+          <RecentStudents students={data?.recentStudents ?? []} loading={!data} />
+        </div>
+      </section>
+
       {activeFilter !== null && !studentsLoading && data ? (
         <DashboardFilterPanel
           activeFilter={activeFilter}
@@ -784,15 +793,6 @@ function Dashboard({
           todaysTraining={data.todaysTraining}
         />
       ) : null}
-
-      <section className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
-        <DashboardStudentList loading={studentsLoading} onViewStudent={onViewStudent} students={students} />
-
-        <div className="flex flex-col gap-4">
-          <QuickActions onAddStudent={onAddStudent} />
-          <RecentStudents students={data?.recentStudents ?? []} loading={!data} />
-        </div>
-      </section>
     </>
   );
 }
@@ -810,6 +810,14 @@ function DashboardFilterPanel({
   students: StudentListItem[];
   todaysTraining: TrainingItem[];
 }) {
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onDismiss();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onDismiss]);
+
   const filteredStudents =
     activeFilter === "total"
       ? students
@@ -832,94 +840,105 @@ function DashboardFilterPanel({
     activeFilter === "training" ? todaysTraining.length : filteredStudents.length;
 
   return (
-    <section className="rounded-lg border border-[#2563eb] bg-white p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">
-          {heading}{" "}
-          <span className="text-sm font-normal text-[#6b7280]">({count})</span>
-        </h2>
-        <button
-          className="rounded-md border border-[#d1d5db] px-3 py-1.5 text-sm font-medium text-[#6b7280] transition hover:bg-[#f3f4f6]"
-          onClick={onDismiss}
-          type="button"
-        >
-          Dismiss
-        </button>
-      </div>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
+      onClick={onDismiss}
+    >
+      <div
+        className="flex max-h-[80vh] w-full flex-col rounded-t-2xl bg-white shadow-xl sm:max-w-lg sm:rounded-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-[#d1d5db] px-4 py-4">
+          <h2 className="text-lg font-semibold">
+            {heading}{" "}
+            <span className="text-sm font-normal text-[#6b7280]">({count})</span>
+          </h2>
+          <button
+            aria-label="Close"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-[#6b7280] transition hover:bg-[#f3f4f6]"
+            onClick={onDismiss}
+            type="button"
+          >
+            <svg fill="none" height="18" stroke="currentColor" viewBox="0 0 24 24" width="18">
+              <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+            </svg>
+          </button>
+        </div>
 
-      <div className="mt-4">
-        {activeFilter === "training" ? (
-          todaysTraining.length === 0 ? (
-            <p className="text-sm text-[#6b7280]">No training sessions scheduled for today.</p>
+        <div className="overflow-y-auto p-4">
+          {activeFilter === "training" ? (
+            todaysTraining.length === 0 ? (
+              <p className="text-sm text-[#6b7280]">No training sessions scheduled for today.</p>
+            ) : (
+              <>
+                {todaysTraining.length === 8 ? (
+                  <p className="mb-3 text-xs text-[#6b7280]">
+                    Showing up to 8 sessions — check Reports for the full list.
+                  </p>
+                ) : null}
+                <div className="space-y-2">
+                  {todaysTraining.map((item) => (
+                    <div
+                      className="flex items-center justify-between gap-3 rounded-md border border-[#d1d5db] p-3"
+                      key={item.id}
+                    >
+                      <div>
+                        <p className="font-semibold">{item.student_name}</p>
+                        <p className="text-sm text-[#6b7280]">
+                          {item.training_time || "Time not set"}
+                          {item.instructor_name ? ` — ${item.instructor_name}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <StatusBadge status={item.status} />
+                        <button
+                          className="rounded-md border border-[#d1d5db] px-3 py-1 text-xs font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
+                          onClick={() => onViewStudent(item.student_id)}
+                          type="button"
+                        >
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )
+          ) : filteredStudents.length === 0 ? (
+            <p className="text-sm text-[#6b7280]">No students found.</p>
           ) : (
-            <>
-              {todaysTraining.length === 8 ? (
-                <p className="mb-3 text-xs text-[#6b7280]">
-                  Showing up to 8 sessions — check Reports for the full list.
-                </p>
-              ) : null}
-              <div className="space-y-2">
-                {todaysTraining.map((item) => (
-                  <div
-                    className="flex items-center justify-between gap-3 rounded-md border border-[#d1d5db] p-3"
-                    key={item.id}
-                  >
-                    <div>
-                      <p className="font-semibold">{item.student_name}</p>
-                      <p className="text-sm text-[#6b7280]">
-                        {item.training_time || "Time not set"}
-                        {item.instructor_name ? ` — ${item.instructor_name}` : ""}
+            <div className="space-y-2">
+              {filteredStudents.map((student) => (
+                <div
+                  className="flex items-center justify-between gap-3 rounded-md border border-[#d1d5db] p-3"
+                  key={student.id}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{student.full_name}</p>
+                    <p className="text-sm text-[#6b7280]">{student.phone}</p>
+                    {student.pending_amount > 0 ? (
+                      <p className="mt-1 text-sm text-[#d64545]">
+                        Pending {formatCurrency(student.pending_amount)}
                       </p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-2">
-                      <StatusBadge status={item.status} />
-                      <button
-                        className="rounded-md border border-[#d1d5db] px-3 py-1 text-xs font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
-                        onClick={() => onViewStudent(item.student_id)}
-                        type="button"
-                      >
-                        View
-                      </button>
-                    </div>
+                    ) : null}
                   </div>
-                ))}
-              </div>
-            </>
-          )
-        ) : filteredStudents.length === 0 ? (
-          <p className="text-sm text-[#6b7280]">No students found.</p>
-        ) : (
-          <div className="max-h-[400px] overflow-y-auto space-y-2 pr-1">
-            {filteredStudents.map((student) => (
-              <div
-                className="flex items-center justify-between gap-3 rounded-md border border-[#d1d5db] p-3"
-                key={student.id}
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-semibold">{student.full_name}</p>
-                  <p className="text-sm text-[#6b7280]">{student.phone}</p>
-                  {student.pending_amount > 0 ? (
-                    <p className="mt-1 text-sm text-[#d64545]">
-                      Pending {formatCurrency(student.pending_amount)}
-                    </p>
-                  ) : null}
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <StatusBadge status={student.status} />
+                    <button
+                      className="rounded-md border border-[#d1d5db] px-3 py-1 text-xs font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
+                      onClick={() => onViewStudent(student.id)}
+                      type="button"
+                    >
+                      View
+                    </button>
+                  </div>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-2">
-                  <StatusBadge status={student.status} />
-                  <button
-                    className="rounded-md border border-[#d1d5db] px-3 py-1 text-xs font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]"
-                    onClick={() => onViewStudent(student.id)}
-                    type="button"
-                  >
-                    View
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </section>
+    </div>
   );
 }
 
