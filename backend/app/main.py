@@ -1,10 +1,17 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Query
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from .ai import generate_dashboard_insights, generate_payment_reminder
 from .dashboard import get_dashboard_data
 from .database import initialize_database, verify_database
 from .payments import PaymentCreate, create_payment
@@ -60,6 +67,17 @@ def dashboard() -> dict:
     return get_dashboard_data()
 
 
+@app.get("/dashboard/insights")
+def dashboard_insights() -> dict:
+    try:
+        text = generate_dashboard_insights()
+        return {"insights": text}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @app.get("/students")
 def students(
     search: str | None = Query(default=None),
@@ -86,6 +104,18 @@ def update_student_route(student_id: int, payload: StudentUpdate) -> dict:
 @app.patch("/students/{student_id}/archive")
 def archive_student_route(student_id: int) -> dict:
     return archive_student(student_id)
+
+
+@app.get("/students/{student_id}/payment-reminder")
+def payment_reminder(student_id: int) -> dict:
+    student = get_student(student_id)
+    try:
+        text = generate_payment_reminder(student["full_name"], student["pending_amount"])
+        return {"reminder": text}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.post("/students/{student_id}/payments", status_code=201)

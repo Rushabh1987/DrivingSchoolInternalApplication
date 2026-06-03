@@ -674,6 +674,9 @@ function Dashboard({
   const [students, setStudents] = useState<StudentListItem[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<DashboardFilter | null>(null);
+  const [insightsState, setInsightsState] = useState<
+    { status: "loading" } | { status: "ready"; text: string } | { status: "error"; message?: string }
+  >({ status: "loading" });
 
   function handleFilterClick(filter: DashboardFilter) {
     setActiveFilter((current) => (current === filter ? null : filter));
@@ -723,8 +726,24 @@ function Dashboard({
       }
     }
 
+    async function loadInsights() {
+      if (!isCancelled) setInsightsState({ status: "loading" });
+      try {
+        const response = await fetch(`${getApiBaseUrl()}/dashboard/insights`, { cache: "no-store" });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({})) as { detail?: string };
+          throw new Error(err.detail ?? "Insights unavailable");
+        }
+        const data = (await response.json()) as { insights: string };
+        if (!isCancelled) setInsightsState({ status: "ready", text: data.insights });
+      } catch (err) {
+        if (!isCancelled) setInsightsState({ status: "error", message: err instanceof Error ? err.message : undefined });
+      }
+    }
+
     void loadDashboard();
     void loadStudents();
+    void loadInsights();
 
     return () => {
       isCancelled = true;
@@ -773,6 +792,49 @@ function Dashboard({
           tone="danger"
           value={data?.counts.pendingPayments}
         />
+      </section>
+
+      <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-[#1f2937]">AI Insights</p>
+          <button
+            className="rounded-md border border-[#d1d5db] px-3 py-1 text-xs font-medium text-[#6b7280] transition hover:bg-[#f3f4f6] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={insightsState.status === "loading"}
+            onClick={() => {
+              setInsightsState({ status: "loading" });
+              fetch(`${getApiBaseUrl()}/dashboard/insights`, { cache: "no-store" })
+                .then(async (r) => {
+                  if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { detail?: string }).detail ?? "Failed");
+                  return r.json() as Promise<{ insights: string }>;
+                })
+                .then((d) => setInsightsState({ status: "ready", text: d.insights }))
+                .catch((err: unknown) => setInsightsState({ status: "error", message: err instanceof Error ? err.message : "Failed" }));
+            }}
+            type="button"
+          >
+            {insightsState.status === "loading" ? "Generating..." : "Refresh"}
+          </button>
+        </div>
+        {insightsState.status === "loading" ? (
+          <div className="mt-3 space-y-2">
+            <div className="h-4 w-3/4 animate-pulse rounded bg-[#f3f4f6]" />
+            <div className="h-4 w-full animate-pulse rounded bg-[#f3f4f6]" />
+            <div className="h-4 w-2/3 animate-pulse rounded bg-[#f3f4f6]" />
+          </div>
+        ) : insightsState.status === "ready" ? (
+          <ul className="mt-3 space-y-2">
+            {insightsState.text.split("\n").filter(Boolean).map((line, i) => (
+              <li key={i} className="flex gap-2 text-sm text-[#374151]">
+                <span className="mt-0.5 shrink-0 text-[#2563eb]">•</span>
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        ) : insightsState.status === "error" ? (
+          <p className="mt-3 text-sm text-[#d64545]">
+            {insightsState.message ?? "Could not generate insights."} — click Refresh to retry.
+          </p>
+        ) : null}
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
@@ -1307,6 +1369,10 @@ function StudentProfileView({
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [archiveSaving, setArchiveSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [reminderState, setReminderState] = useState<
+    { status: "idle" } | { status: "loading" } | { status: "ready"; text: string } | { status: "error"; message: string }
+  >({ status: "idle" });
+  const [reminderCopied, setReminderCopied] = useState(false);
 
   useEffect(() => {
     if (studentId === null) return;
@@ -1431,6 +1497,25 @@ function StudentProfileView({
     }
   }
 
+  async function handleDraftReminder() {
+    setReminderState({ status: "loading" });
+    setReminderCopied(false);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/students/${studentId}/payment-reminder`);
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({})) as { detail?: string };
+        throw new Error(err.detail || "Failed to generate reminder");
+      }
+      const data = (await response.json()) as { reminder: string };
+      setReminderState({ status: "ready", text: data.reminder });
+    } catch (error) {
+      setReminderState({
+        status: "error",
+        message: error instanceof Error ? error.message : "Could not generate reminder.",
+      });
+    }
+  }
+
   if (profileState.status === "loading") {
     return (
       <section className="rounded-lg border border-[#d1d5db] bg-white p-4 sm:p-5">
@@ -1515,6 +1600,16 @@ function StudentProfileView({
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {student.status !== "archived" && student.pending_amount > 0 ? (
+              <button
+                className="min-h-10 rounded-md border border-[#d1d5db] px-3 py-2 text-sm font-semibold text-[#2563eb] transition hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={reminderState.status === "loading"}
+                onClick={handleDraftReminder}
+                type="button"
+              >
+                {reminderState.status === "loading" ? "Drafting..." : "Draft Reminder"}
+              </button>
+            ) : null}
             {student.status !== "archived" ? (
               <>
                 <button className="min-h-10 rounded-md border border-[#d1d5db] px-3 py-2 text-sm font-semibold text-[#1f2937] transition hover:bg-[#f3f4f6]" onClick={handleStartEdit} type="button">Edit</button>
@@ -1602,6 +1697,65 @@ function StudentProfileView({
           )}
         </div>
       </section>
+
+      {reminderState.status !== "idle" ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
+          onClick={() => { setReminderState({ status: "idle" }); setReminderCopied(false); }}
+        >
+          <div
+            className="flex w-full flex-col rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-md sm:rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-semibold">Payment Reminder Draft</p>
+              <button
+                className="rounded-md border border-[#d1d5db] px-3 py-1.5 text-sm font-medium text-[#6b7280] transition hover:bg-[#f3f4f6]"
+                onClick={() => { setReminderState({ status: "idle" }); setReminderCopied(false); }}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+
+            {reminderState.status === "loading" ? (
+              <div className="mt-4 space-y-2">
+                <div className="h-4 w-full animate-pulse rounded bg-[#f3f4f6]" />
+                <div className="h-4 w-4/5 animate-pulse rounded bg-[#f3f4f6]" />
+                <div className="h-4 w-3/5 animate-pulse rounded bg-[#f3f4f6]" />
+              </div>
+            ) : reminderState.status === "error" ? (
+              <p className="mt-4 text-sm text-[#d64545]">{reminderState.message}</p>
+            ) : reminderState.status === "ready" ? (
+              <div className="mt-4">
+                <div className="rounded-md border border-[#d1d5db] bg-[#f9fafb] p-3">
+                  <p className="whitespace-pre-wrap text-sm">{reminderState.text}</p>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    className="flex-1 rounded-md bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(reminderState.status === "ready" ? reminderState.text : "");
+                      setReminderCopied(true);
+                      setTimeout(() => setReminderCopied(false), 2000);
+                    }}
+                    type="button"
+                  >
+                    {reminderCopied ? "Copied!" : "Copy"}
+                  </button>
+                  <button
+                    className="rounded-md border border-[#d1d5db] px-4 py-2 text-sm font-medium text-[#6b7280] transition hover:bg-[#f3f4f6]"
+                    onClick={handleDraftReminder}
+                    type="button"
+                  >
+                    Regenerate
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
