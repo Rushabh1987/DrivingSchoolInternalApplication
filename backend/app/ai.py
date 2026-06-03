@@ -46,7 +46,7 @@ def _clean(text: str) -> str:
             continue
         # Remove leading labels like "Line1:", "1.", "Insight 2:", "•", "-"
         stripped = re.sub(r"^(line\s*\d+[:.]?\s*|\d+[.)]\s*|insight\s*\d*[:.]?\s*|[-•]\s*)", "", stripped, flags=re.IGNORECASE).strip()
-        if stripped:
+        if stripped and stripped[-1] in ".!?":
             lines.append(stripped)
     return "\n".join(lines[:3])
 
@@ -79,7 +79,7 @@ def generate_dashboard_insights() -> str:
             {"role": "system", "content": _SYSTEM_INSIGHTS},
             {"role": "user", "content": user_message},
         ],
-        max_tokens=200,
+        max_tokens=400,
         temperature=0.3,
     )
     raw = (response.choices[0].message.content or "").strip()
